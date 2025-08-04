@@ -1,5 +1,5 @@
+CREATE DATABASE NWUHealthCentre;
 -- ------------------------------------------------------------------------------------
-
 -- Table for User Roles
 -- This table defines the different roles within the system, such as 'Student',
 -- 'Clinic Staff', and 'Administrator'. This approach allows for a flexible
@@ -172,4 +172,5 @@ CREATE TABLE SystemLogs (
     LoggedTime DATETIME DEFAULT GETDATE(), -- The timestamp of the log entry.
     UserID INT, -- The ID of the user associated with the log, if applicable.
     UserRole NVARCHAR(50) -- The role of the user (e.g., 'Student', 'Admin') for context.
+
 );
