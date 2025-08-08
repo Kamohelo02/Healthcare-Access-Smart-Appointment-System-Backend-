@@ -1,176 +1,161 @@
-CREATE DATABASE NWUHealthCentre;
--- ------------------------------------------------------------------------------------
--- Table for User Roles
--- This table defines the different roles within the system, such as 'Student',
--- 'Clinic Staff', and 'Administrator'. This approach allows for a flexible
--- role-based access control system.
--- ------------------------------------------------------------------------------------
-CREATE TABLE UserRoles (
-    RoleID INT IDENTITY(1,1) PRIMARY KEY, -- Unique identifier for each role.
-    RoleName NVARCHAR(50) NOT NULL UNIQUE -- The name of the role (e.g., 'Student').
-);
+Core identity table
 
--- Insert initial roles into the table.
-INSERT INTO UserRoles (RoleName) VALUES ('Student'), ('Clinic Staff'), ('Administrator');
-
--- ------------------------------------------------------------------------------------
--- Table for Campuses
--- This table stores a list of campuses to ensure data consistency across the application.
--- ------------------------------------------------------------------------------------
-CREATE TABLE Campuses (
-    CampusID INT IDENTITY(1,1) PRIMARY KEY, -- Unique identifier for each campus.
-    CampusName NVARCHAR(100) NOT NULL UNIQUE -- The name of the campus (e.g., 'Potchefstroom').
-);
-
--- ------------------------------------------------------------------------------------
--- Table for Students
--- This table stores personal and academic details for all registered student users.
--- Updated to include a foreign key to the new Campuses table.
--- ------------------------------------------------------------------------------------
-CREATE TABLE Students (
-    StudentID INT IDENTITY(1,1) PRIMARY KEY, -- Unique identifier for each student.
-    StudentNumber NVARCHAR(50) NOT NULL UNIQUE, -- The student's unique academic number.
-    FullName NVARCHAR(255) NOT NULL, -- The full name of the student.
-    Email NVARCHAR(255) NOT NULL UNIQUE, -- The student's email, used for login and notifications.
-    CampusID INT NOT NULL, -- Foreign key linking to the Campuses table.
-    PasswordHash NVARCHAR(255) NOT NULL, -- Hashed password for secure authentication.
-    ContactNumber NVARCHAR(20), -- Student's phone number for SMS notifications.
-    ProfileUpdated DATETIME DEFAULT GETDATE(), -- Timestamp of the last profile update.
-    IsActive BIT NOT NULL DEFAULT 1, -- Status of the account (active or deactivated).
-    FOREIGN KEY (CampusID) REFERENCES Campuses(CampusID)
-);
-
--- ------------------------------------------------------------------------------------
--- Table for Clinic Staff
--- This table stores login and profile information for clinic staff members.
--- ------------------------------------------------------------------------------------
-CREATE TABLE ClinicStaff (
-    StaffID INT IDENTITY(1,1) PRIMARY KEY, -- Unique identifier for each staff member.
-    FullName NVARCHAR(255) NOT NULL, -- The full name of the staff member.
-    Email NVARCHAR(255) NOT NULL UNIQUE, -- The staff's email, used for login.
-    PasswordHash NVARCHAR(255) NOT NULL, -- Hashed password for secure authentication.
-    IsActive BIT NOT NULL DEFAULT 1 -- Status of the account (active or deactivated).
-);
-
--- ------------------------------------------------------------------------------------
--- Table for Administrators
--- This table stores login and profile information for system administrators.
--- ------------------------------------------------------------------------------------
-CREATE TABLE Administrators (
-    AdminID INT IDENTITY(1,1) PRIMARY KEY, -- Unique identifier for each administrator.
-    FullName NVARCHAR(255) NOT NULL, -- The full name of the administrator.
-    Email NVARCHAR(255) NOT NULL UNIQUE, -- The admin's email, used for login.
-    PasswordHash NVARCHAR(255) NOT NULL, -- Hashed password for secure authentication.
-    IsActive BIT NOT NULL DEFAULT 1 -- Status of the account (active or deactivated).
-);
-
--- ------------------------------------------------------------------------------------
--- Table for Appointments
--- This table stores all booking details, linking students and staff.
--- Updated to include a PaymentStatus field as shown in the interface.
--- ------------------------------------------------------------------------------------
-CREATE TABLE Appointments (
-    AppointmentID INT IDENTITY(1,1) PRIMARY KEY, -- Unique identifier for each appointment.
-    StudentID INT NOT NULL, -- Foreign key linking to the Students table.
-    StaffID INT, -- Foreign key linking to the ClinicStaff table; NULL if not assigned.
-    AppointmentDate DATE NOT NULL, -- The date of the appointment.
-    AppointmentTime TIME NOT NULL, -- The time of the appointment.
-    ClinicType NVARCHAR(100) NOT NULL, -- The type of clinic or reason for the visit.
-    Notes NVARCHAR(MAX), -- Optional notes added by the student or staff.
-    Status NVARCHAR(50) NOT NULL, -- The current status of the appointment (e.g., 'Pending', 'Approved').
-    PaymentStatus NVARCHAR(50) NOT NULL, -- Status of payment (e.g., 'Paid', 'Pending', 'N/A').
-    CreatedDate DATETIME DEFAULT GETDATE(), -- Timestamp when the appointment was created.
-    LastUpdated DATETIME DEFAULT GETDATE(), -- Timestamp of the last update to the appointment.
-    FOREIGN KEY (StudentID) REFERENCES Students(StudentID),
-    FOREIGN KEY (StaffID) REFERENCES ClinicStaff(StaffID)
-);
-
--- ------------------------------------------------------------------------------------
--- Table for FAQ (Frequently Asked Questions)
--- This table stores content for the FAQ section, which is managed by administrators.
--- ------------------------------------------------------------------------------------
-CREATE TABLE FAQs (
-    FAQID INT IDENTITY(1,1) PRIMARY KEY, -- Unique identifier for each FAQ entry.
-    Question NVARCHAR(MAX) NOT NULL, -- The question text.
-    Answer NVARCHAR(MAX) NOT NULL, -- The answer text.
-    Category NVARCHAR(100), -- The category of the question for easy searching.
-    LastUpdated DATETIME DEFAULT GETDATE() -- Timestamp of the last update to the FAQ.
-);
-
--- ------------------------------------------------------------------------------------
--- Table for Announcements
--- This table stores clinic-wide announcements that are broadcasted to all users.
--- ------------------------------------------------------------------------------------
-CREATE TABLE Announcements (
-    AnnouncementID INT IDENTITY(1,1) PRIMARY KEY, -- Unique identifier for each announcement.
-    Title NVARCHAR(255) NOT NULL, -- The title of the announcement.
-    Message NVARCHAR(MAX) NOT NULL, -- The full text of the announcement.
-    CreatedDate DATETIME DEFAULT GETDATE() -- Timestamp when the announcement was created.
-);
-
--- ------------------------------------------------------------------------------------
--- Table for AnnouncementCampusLinks
--- A linking table to allow announcements to be targeted to specific campuses.
--- This supports the "Select Campuses for this Alert" feature.
--- ------------------------------------------------------------------------------------
-CREATE TABLE AnnouncementCampusLinks (
-    AnnouncementID INT NOT NULL,
-    CampusID INT NOT NULL,
-    PRIMARY KEY (AnnouncementID, CampusID),
-    FOREIGN KEY (AnnouncementID) REFERENCES Announcements(AnnouncementID),
-    FOREIGN KEY (CampusID) REFERENCES Campuses(CampusID)
+-- Stores base user credentials and roles for all system actors (students, staff, admins)
+CREATE TABLE Users (
+    user_id INT PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    phone VARCHAR(25) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    account_status BIT DEFAULT 1,
+    student_id INT FOREIGN KEY REFERENCES Student(student_id),
+    staff_id INT FOREIGN KEY REFERENCES Staff(staff_id)
 );
 
 
--- ------------------------------------------------------------------------------------
--- Table for Feedback
--- This table stores user feedback submissions, which are moderated by administrators.
--- ------------------------------------------------------------------------------------
+
+-- Extends User with academic details for patients. 
+-- Links to bookings and medical records.
+CREATE TABLE Student (
+    student_id INT PRIMARY KEY REFERENCES User(user_id),
+    student_number VARCHAR(20) UNIQUE NOT NULL,
+    first_name  VARCHAR(255) NOT NULL,
+    last_name  VARCHAR(255) NOT NULL,
+    faculty VARCHAR(100) NOT NULL
+	
+);
+
+-- Extends User with professional details for clinic personnel.
+-- Admins are staff members with is_admin=TRUE.
+CREATE TABLE Staff (
+    staff_id INT PRIMARY KEY,
+    staff_number INT NOT NULL,
+    position VARCHAR(255) NOT NULL,
+    is_admin BIT,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL
+);
+
+CREATE TABLE Administrator (
+    admin_id INT PRIMARY KEY
+);
+
+Appointment workflow tables
+
+-- Tracks appointment requests before approval/rescheduling.
+-- Status: requested/approved/rejected.
+CREATE TABLE Booking (
+    booking_id INT PRIMARY KEY,
+    student_id INT,
+    staff_id INT,
+    status VARCHAR(50),
+    requested_time_date TIME,
+    created_at DATETIME,
+    processed_at DATETIME,
+    CONSTRAINT FK_Booking_Student FOREIGN KEY (student_id) REFERENCES Student(student_id),
+    CONSTRAINT FK_Booking_Staff FOREIGN KEY (staff_id) REFERENCES Staff(staff_id)
+);
+
+
+-- Finalized appointments derived from approved bookings.
+-- Links to actual time slots and medical documentation.
+CREATE TABLE Appointment (
+    appointment_id INT PRIMARY KEY,
+    booking_id INT,
+    staff_id INT,
+    date_and_time TIME,
+    status VARCHAR(25),
+    notes VARCHAR(255),
+    CONSTRAINT FK_Appointment_Staff FOREIGN KEY (staff_id) REFERENCES Staff(staff_id)
+);
+
+
+
+-- Manages staff availability windows for scheduling.
+-- Status: available/booked/blocked.
+CREATE TABLE TimeSlot (
+    slot_id INT PRIMARY KEY,
+    staff_id INT NOT NULL,
+    date DATE NOT NULL,
+    start_time DATETIME NOT NULL,
+    end_time DATETIME,
+    CONSTRAINT FK_TimeSlot_Staff FOREIGN KEY (staff_id) REFERENCES Staff(staff_id)
+);
+
+
+
+
+Communication tables
+
+CREATE TABLE Notification (
+    notification_id INT PRIMARY KEY,
+    appointment_id INT NOT NULL,
+    content VARCHAR(MAX) NOT NULL,
+    status VARCHAR(50),
+    type VARCHAR(50),
+    sent_at DATETIME,
+    CONSTRAINT FK_Notification_Appointment FOREIGN KEY (appointment_id) REFERENCES Appointment(appointment_id)
+);
+
+
+
+
+-- Clinic-wide announcements (e.g., holiday closures).
+-- Visible to students/staff based on audience targeting.
+CREATE TABLE Announcement (
+    announcement_id INT PRIMARY KEY,
+    title VARCHAR(255),
+    content VARCHAR(500),
+    created_at DATETIMEOFFSET,
+    admin_id INT,
+    CONSTRAINT FK_Announcement_Admin FOREIGN KEY (admin_id) REFERENCES Administrator(admin_id)
+);
+
+
+-- Patient feedback about appointments or services.
+-- Moderated by admins via status: pending/approved/rejected.
 CREATE TABLE Feedback (
-    FeedbackID INT IDENTITY(1,1) PRIMARY KEY, -- Unique identifier for each feedback submission.
-    StudentID INT NOT NULL, -- Foreign key linking to the Students table.
-    Comment NVARCHAR(MAX) NOT NULL, -- The full text of the feedback.
-    Rating INT, -- Optional rating provided by the user.
-    Status NVARCHAR(50) NOT NULL, -- The moderation status (e.g., 'Pending', 'Approved').
-    SubmittedDate DATETIME DEFAULT GETDATE(), -- Timestamp when the feedback was submitted.
-    FOREIGN KEY (StudentID) REFERENCES Students(StudentID)
+    feedback_id INT PRIMARY KEY,
+    student_id INT NOT NULL,
+    appointment_id INT NOT NULL,
+    message VARCHAR(MAX),
+    rating INT,
+    submitted_at DATETIME NOT NULL,
+    CONSTRAINT FK_Feedback_Student FOREIGN KEY (student_id) REFERENCES Student(student_id),
+    CONSTRAINT FK_Feedback_Appointment FOREIGN KEY (appointment_id) REFERENCES Appointment(appointment_id)
 );
 
--- ------------------------------------------------------------------------------------
--- Table for Staff Availability
--- This table stores the available time slots for clinic staff to be booked by students.
--- ------------------------------------------------------------------------------------
-CREATE TABLE StaffAvailability (
-    AvailabilityID INT IDENTITY(1,1) PRIMARY KEY, -- Unique identifier for each availability slot.
-    StaffID INT NOT NULL, -- Foreign key linking to the ClinicStaff table.
-    AvailableDate DATE NOT NULL, -- The date the staff is available.
-    StartTime TIME NOT NULL, -- The start time of the availability window.
-    EndTime TIME NOT NULL, -- The end time of the availability window.
-    FOREIGN KEY (StaffID) REFERENCES ClinicStaff(StaffID)
+
+System management tables
+
+-- Configurable business rules (e.g., max appointments per day).
+-- Key examples: 'booking_window_days', 'cancelation_period_hours'.
+CREATE TABLE SystemConfiguration (
+    configure_id INT PRIMARY KEY,
+    config_key VARCHAR(100) NOT NULL,
+    config_value VARCHAR(255) NOT NULL,
+    description VARCHAR(255) NOT NULL,
+    created_at TIME
 );
 
--- ------------------------------------------------------------------------------------
--- Table for SystemSettings
--- This table stores global configuration settings for the system, such as
--- the daily appointment limit and booking rules, as shown in the admin interface.
--- ------------------------------------------------------------------------------------
-CREATE TABLE SystemSettings (
-    SettingID INT IDENTITY(1,1) PRIMARY KEY, -- Unique identifier for the setting.
-    SettingName NVARCHAR(255) NOT NULL UNIQUE, -- The name of the setting (e.g., 'DailyAppointmentLimit').
-    SettingValue NVARCHAR(MAX) NOT NULL, -- The value of the setting.
-    LastUpdated DATETIME DEFAULT GETDATE() -- Timestamp of the last update.
+
+-- Audit trail for security/compliance. Tracks all CRUD operations.
+CREATE TABLE AuditLog (
+    audit_id INT PRIMARY KEY,
+    log_type VARCHAR(50) NOT NULL,
+    message VARCHAR(255) NOT NULL,
+    logged_time DATETIME,
+    admin_id INT NOT NULL,
+    CONSTRAINT FK_AuditLog_Admin FOREIGN KEY (admin_id) REFERENCES Administrator(admin_id)
 );
 
--- ------------------------------------------------------------------------------------
--- Table for System Logs
--- This table serves as an audit trail for system events, errors, and user actions.
--- ------------------------------------------------------------------------------------
-CREATE TABLE SystemLogs (
-    LogID INT IDENTITY(1,1) PRIMARY KEY, -- Unique identifier for each log entry.
-    LogType NVARCHAR(50) NOT NULL, -- The type of log (e.g., 'Error', 'Authentication', 'Audit').
-    Message NVARCHAR(MAX) NOT NULL, -- The detailed log message.
-    LoggedTime DATETIME DEFAULT GETDATE(), -- The timestamp of the log entry.
-    UserID INT, -- The ID of the user associated with the log, if applicable.
-    UserRole NVARCHAR(50) -- The role of the user (e.g., 'Student', 'Admin') for context.
 
+
+-- Predefined answers for common student queries.
+-- Categorized for quick retrieval (e.g., 'billing', 'visa_requirements').
+CREATE TABLE FAQ (
+    faq_id INT PRIMARY KEY,
+    question VARCHAR(255),
+    answer VARCHAR(255),
+    category VARCHAR(100),
+    created_at DATETIME
 );
