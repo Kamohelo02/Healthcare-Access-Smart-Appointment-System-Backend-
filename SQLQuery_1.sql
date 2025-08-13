@@ -7,6 +7,7 @@ CREATE TABLE Users (
     phone VARCHAR(25) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     account_status BIT DEFAULT 1,
+	created_at DATETIME,
     student_id INT FOREIGN KEY REFERENCES Student(student_id),
     staff_id INT FOREIGN KEY REFERENCES Staff(staff_id)
 );
@@ -17,11 +18,8 @@ CREATE TABLE Users (
 -- Links to bookings and medical records.
 CREATE TABLE Student (
     student_id INT PRIMARY KEY REFERENCES User(user_id),
-    student_number VARCHAR(20) UNIQUE NOT NULL,
-    first_name  VARCHAR(255) NOT NULL,
-    last_name  VARCHAR(255) NOT NULL,
-    faculty VARCHAR(100) NOT NULL
-	
+    student_number VARCHAR(20) UNIQUE NOT NULL
+    
 );
 
 -- Extends User with professional details for clinic personnel.
@@ -31,8 +29,6 @@ CREATE TABLE Staff (
     staff_number INT NOT NULL,
     position VARCHAR(255) NOT NULL,
     is_admin BIT,
-    first_name VARCHAR(50) NOT NULL,
-    last_name VARCHAR(50) NOT NULL
 );
 
 CREATE TABLE Administrator (
@@ -159,3 +155,4 @@ CREATE TABLE FAQ (
     category VARCHAR(100),
     created_at DATETIME
 );
+
