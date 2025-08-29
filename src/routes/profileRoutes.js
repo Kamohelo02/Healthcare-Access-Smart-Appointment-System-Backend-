@@ -1,12 +1,12 @@
 const express = require('express');
-const { sql, pool } = require("../config/db");
+const { sql, poolPromise } = require("../config/db");
 const authenticateToken = require('../Middleware/auth.middleware');
 const router = express.Router();
 
 // GET /profile - View student profile
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const pool = getPool();
+    const pool = await poolPromise;
     const result = await pool.request()
       .input('userId', sql.Int, req.user.userId)
       .query(`
@@ -47,7 +47,7 @@ router.put('/', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'At least one field is required for update' });
     }
 
-    const pool = getPool();
+    const pool = await poolPromise;
 
     // Check if email is already taken by another user
     if (email) {

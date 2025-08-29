@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { sql, pool } = require("../config/db");
+const { sql, poolPromise } = require("../config/db");
 const router = express.Router();
 //const authenticateToken = require('../Middleware/auth.middleware');
 
@@ -17,7 +17,7 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'All fields are required' });
     }
 
-    const pool = getPool();
+    const pool = await poolPromise;
 
     // Check if user already exists
     const userCheck = await pool.request()
@@ -98,7 +98,7 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    const pool = getPool();
+    const pool = await poolPromise;
 
     // Find user
     const result = await pool.request()

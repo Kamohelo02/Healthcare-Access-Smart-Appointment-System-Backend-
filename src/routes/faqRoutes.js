@@ -1,5 +1,6 @@
 const express = require('express');
-const { sql, pool } = require("../config/db");
+const { sql, poolPromise } = require("../config/db");
+
 
 const router = express.Router();
 
@@ -7,7 +8,7 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   try {
     const { category } = req.query;
-    const pool = getPool();
+    const pool = await poolPromise;
     
     let query = 'SELECT faq_id, question, answer, category, created_at FROM FAQ';
     const request = pool.request();

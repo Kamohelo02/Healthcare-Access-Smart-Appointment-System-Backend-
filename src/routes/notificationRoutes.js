@@ -1,12 +1,12 @@
 const express = require('express');
-const { sql, pool } = require("../config/db");
+const { sql, poolPromise } = require("../config/db");
 const authenticateToken = require('../Middleware/auth.middleware');
 const router = express.Router();
 
 // GET /notifications - View student notifications
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const pool = getPool();
+    const pool = await poolPromise;
     const result = await pool.request()
       .input('userId', sql.Int, req.user.userId)
       .query(`
