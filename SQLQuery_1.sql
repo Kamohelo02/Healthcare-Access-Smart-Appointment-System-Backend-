@@ -1,13 +1,14 @@
 Core identity table
 
 -- Stores base user credentials and roles for all system actors (students, staff, admins)
-CREATE TABLE Users (
+CREATE TABLE UserAccount (
     user_id INT PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
     phone VARCHAR(25) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     account_status BIT DEFAULT 1,
 	created_at DATETIME,
+	role VARCHAR(50) NOT NULL ;
     student_id INT FOREIGN KEY REFERENCES Student(student_id),
     staff_id INT FOREIGN KEY REFERENCES Staff(staff_id)
 );
@@ -155,4 +156,5 @@ CREATE TABLE FAQ (
     category VARCHAR(100),
     created_at DATETIME
 );
+
 
