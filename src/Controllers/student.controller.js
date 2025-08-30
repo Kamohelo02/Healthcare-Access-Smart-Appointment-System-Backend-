@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
-/* ------------------- auth (Registration and login) ----------------*/
+// ------------------- auth (Registration and login) ----------------
 exports.userRegistration = async (req, res) => {
   try {
     const { email, phone, password, studentNumber, fullName } = req.body;
@@ -42,11 +42,12 @@ exports.userRegistration = async (req, res) => {
       const userResult = await transaction.request()
         .input('email', sql.VarChar, email)
         .input('phone', sql.VarChar, phone)
+        .input('fullName', sql.VarChar, fullName)
         .input('passwordHash', sql.VarChar, passwordHash)
         .query(`
-          INSERT INTO Users (email, phone, password_hash, account_status, created_at) 
+          INSERT INTO Users (email, phone, full_name, password_hash, account_status, created_at) 
           OUTPUT INSERTED.user_id
-          VALUES (@email, @phone, @passwordHash, 1, GETDATE())
+          VALUES (@email, @phone, @fullName, @passwordHash, 1, GETDATE())
         `);
 
       const userId = userResult.recordset[0].user_id;
@@ -55,10 +56,9 @@ exports.userRegistration = async (req, res) => {
       await transaction.request()
         .input('studentId', sql.Int, userId)
         .input('studentNumber', sql.VarChar, studentNumber)
-        .input('fullName', sql.VarChar, fullName)
         .query(`
-          INSERT INTO Student (student_id, student_number, full_name) 
-          VALUES (@studentId, @studentNumber, @fullName)
+          INSERT INTO Student (student_id, student_number) 
+          VALUES (@studentId, @studentNumber)
         `);
 
       await transaction.commit();
@@ -81,7 +81,7 @@ exports.userRegistration = async (req, res) => {
     }
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Registration Unsuccessful' });
   }
 };
 
@@ -101,7 +101,7 @@ exports.userLogin = async (req, res) => {
       .input('email', sql.VarChar, email)
       .query(`
         SELECT u.user_id, u.email, u.password_hash, u.account_status, 
-               s.student_number, s.full_name
+               s.student_number, u.full_name
         FROM Users u
         INNER JOIN Student s ON u.user_id = s.student_id
         WHERE u.email = @email
@@ -143,11 +143,11 @@ exports.userLogin = async (req, res) => {
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Failed to login!' });
   }
 };
 
-/* ----------------Profile ---------------------------*/
+// ----------------Profile ---------------------------
 exports.getProfile = async (req, res) => {
   try {
     const pool = await poolPromise;
@@ -155,7 +155,7 @@ exports.getProfile = async (req, res) => {
       .input('userId', sql.Int, req.user.userId)
       .query(`
         SELECT u.user_id, u.email, u.phone, u.created_at,
-               s.student_number, s.full_name
+               s.student_number, u.full_name
         FROM Users u
         INNER JOIN Student s ON u.user_id = s.student_id
         WHERE u.user_id = @userId
@@ -176,7 +176,7 @@ exports.getProfile = async (req, res) => {
     });
   } catch (error) {
     console.error('Profile fetch error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Error while fetching profile' });
   }
 };
 
@@ -260,11 +260,11 @@ exports.updateProfile = async (req, res) => {
     }
   } catch (error) {
     console.error('Profile update error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Could not update profile' });
   }
 };
 
-/* ----------------  faq -----------------------*/
+// ----------------  faq -----------------------
 
 exports.getFaqs = async (req, res) => {
   try {
@@ -289,7 +289,7 @@ exports.getFaqs = async (req, res) => {
   }
 };
 
-/* --------------  notifications ------------------------*/
+// --------------  notifications ------------------------
 exports.getNotifications = async (req, res) => {
   try {
     const pool = await poolPromise;
