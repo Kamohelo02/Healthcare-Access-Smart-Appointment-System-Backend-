@@ -1,22 +1,22 @@
 const express = require("express");
 const router = express.Router();
-const studentController = require("../controllers/student.controllerr");
-const auth = require("../../middleware/auth.middleware");
+const studentController = require("../controllers/student.controller");
+const auth = require("../middleware/auth.middleware");
 const role = require("../middleware/role.middleware");
 
-// auth
-router.post("/auth/register", auth, role("student"), studentController.userRegistration);
-router.post("/auth/login", auth, role("student"), studentController.userLogin);
 
-//profile
+
+// Registration & login (NO AUTH NEEDED, these are entry points)
+router.post("/auth/register", studentController.userRegistration);
+router.post("/auth/login", studentController.userLogin);
+
+// Protected routes (require authentication + student role)
 router.get("/profile", auth, role("student"), studentController.getProfile);
 router.put("/profile", auth, role("student"), studentController.updateProfile);
-
-//notifications
 router.get("/notifications", auth, role("student"), studentController.getNotifications);
 
-//faqs
-router.get("/faqs", auth, role("student"), studentController.getFaqs);
+// FAQs (public)
+router.get("/faqs", studentController.getFaqs);
 
 module.exports = router;
 
