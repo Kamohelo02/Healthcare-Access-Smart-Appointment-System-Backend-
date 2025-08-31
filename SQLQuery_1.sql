@@ -4,13 +4,12 @@ Core identity table
 CREATE TABLE UserAccount (
     user_id INT PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
+	name VARCHAR(255) UNIQUE NOT NULL,
     phone VARCHAR(25) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     account_status BIT DEFAULT 1,
 	created_at DATETIME,
 	role VARCHAR(50) NOT NULL ;
-    student_id INT FOREIGN KEY REFERENCES Student(student_id),
-    staff_id INT FOREIGN KEY REFERENCES Staff(staff_id)
 );
 
 
@@ -18,7 +17,7 @@ CREATE TABLE UserAccount (
 -- Extends User with academic details for patients. 
 -- Links to bookings and medical records.
 CREATE TABLE Student (
-    student_id INT PRIMARY KEY REFERENCES User(user_id),
+    user_id INT PRIMARY KEY REFERENCES UserAccount(user_id),
     student_number VARCHAR(20) UNIQUE NOT NULL
     
 );
@@ -26,14 +25,13 @@ CREATE TABLE Student (
 -- Extends User with professional details for clinic personnel.
 -- Admins are staff members with is_admin=TRUE.
 CREATE TABLE Staff (
-    staff_id INT PRIMARY KEY,
-    staff_number INT NOT NULL,
+    user_id INT PRIMARY KEY REFERENCES UserAccount(user_id)
     position VARCHAR(255) NOT NULL,
     is_admin BIT,
 );
 
 CREATE TABLE Administrator (
-    admin_id INT PRIMARY KEY
+   user_id INT PRIMARY KEY REFERENCES UserAccount(user_id)
 );
 
 Appointment workflow tables
@@ -42,14 +40,12 @@ Appointment workflow tables
 -- Status: requested/approved/rejected.
 CREATE TABLE Booking (
     booking_id INT PRIMARY KEY,
-    student_id INT,
-    staff_id INT,
+    user_id INT,
     status VARCHAR(50),
     requested_time_date TIME,
     created_at DATETIME,
     processed_at DATETIME,
-    CONSTRAINT FK_Booking_Student FOREIGN KEY (student_id) REFERENCES Student(student_id),
-    CONSTRAINT FK_Booking_Staff FOREIGN KEY (staff_id) REFERENCES Staff(staff_id)
+    CONSTRAINT FK_Booking_UserAccount FOREIGN KEY (user_id) REFERENCES UserAccount(user_id),
 );
 
 
@@ -58,11 +54,11 @@ CREATE TABLE Booking (
 CREATE TABLE Appointment (
     appointment_id INT PRIMARY KEY,
     booking_id INT,
-    staff_id INT,
+    user_id INT NOT NULL,
     date_and_time TIME,
     status VARCHAR(25),
     notes VARCHAR(255),
-    CONSTRAINT FK_Appointment_Staff FOREIGN KEY (staff_id) REFERENCES Staff(staff_id)
+    CONSTRAINT FK_Appointment_UserAccount FOREIGN KEY (user_id) REFERENCES UserAccount(user_id)
 );
 
 
@@ -112,12 +108,12 @@ CREATE TABLE Announcement (
 -- Moderated by admins via status: pending/approved/rejected.
 CREATE TABLE Feedback (
     feedback_id INT PRIMARY KEY,
-    student_id INT NOT NULL,
+    user_id INT NOT NULL,
     appointment_id INT NOT NULL,
     message VARCHAR(MAX),
     rating INT,
     submitted_at DATETIME NOT NULL,
-    CONSTRAINT FK_Feedback_Student FOREIGN KEY (student_id) REFERENCES Student(student_id),
+    CONSTRAINT FK_Feedback_UserAccount FOREIGN KEY (user_id) REFERENCES UserAccount(user_id),
     CONSTRAINT FK_Feedback_Appointment FOREIGN KEY (appointment_id) REFERENCES Appointment(appointment_id)
 );
 
@@ -151,10 +147,13 @@ CREATE TABLE AuditLog (
 -- Categorized for quick retrieval (e.g., 'billing', 'visa_requirements').
 CREATE TABLE FAQ (
     faq_id INT PRIMARY KEY,
+	user_id INT NOT NULL;
     question VARCHAR(255),
     answer VARCHAR(255),
     category VARCHAR(100),
     created_at DATETIME
-);
+	CONSTRAINT FK_FAQ_UserAccount FOREIGN KEY (user_id) REFERENCES UserAccount
+	);
+
 
 
