@@ -54,11 +54,9 @@ CREATE TABLE Booking (
 CREATE TABLE Appointment (
     appointment_id INT PRIMARY KEY,
     booking_id INT,
-    user_id INT NOT NULL,
     date_and_time TIME,
     status VARCHAR(25),
     notes VARCHAR(255),
-    CONSTRAINT FK_Appointment_UserAccount FOREIGN KEY (user_id) REFERENCES UserAccount(user_id)
 );
 
 
@@ -67,11 +65,11 @@ CREATE TABLE Appointment (
 -- Status: available/booked/blocked.
 CREATE TABLE TimeSlot (
     slot_id INT PRIMARY KEY,
-    staff_id INT NOT NULL,
+    user_id INT NOT NULL,
     date DATE NOT NULL,
     start_time DATETIME NOT NULL,
     end_time DATETIME,
-    CONSTRAINT FK_TimeSlot_Staff FOREIGN KEY (staff_id) REFERENCES Staff(staff_id)
+    CONSTRAINT FK_TimeSlot_UserAccount FOREIGN KEY (user_id) REFERENCES UserAccount(user_id)
 );
 
 
@@ -154,6 +152,7 @@ CREATE TABLE FAQ (
     created_at DATETIME
 	CONSTRAINT FK_FAQ_UserAccount FOREIGN KEY (user_id) REFERENCES UserAccount
 	);
+
 
 
 
