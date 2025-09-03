@@ -98,15 +98,15 @@ exports.getFaqs = async (req, res) => {
       result = await pool.request()
         .input("category", sql.VarChar, category)
         .query(`
-          SELECT faq_id, question, answer, category, _at 
+          SELECT faq_id, question, answer, category, created_at, user_id
           FROM FAQ WHERE category = @category 
-          ORDER BY create_at DESC
+          ORDER BY created_at DESC
         `);
     } else {
       result = await pool.request()
         .query(`
-          SELECT faq_id, question, answer, category, create_at 
-          FROM FAQ ORDER BY create_at DESC
+          SELECT faq_id, question, answer, category, created_at, user_id 
+          FROM FAQ ORDER BY created_at DESC
         `);
     }
     res.json({ faqs: result.recordset });
