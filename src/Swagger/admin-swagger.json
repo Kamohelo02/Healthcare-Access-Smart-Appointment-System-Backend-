@@ -1,0 +1,1216 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Admin Management API",
+    "description": "API documentation for admin management system including users, appointments, FAQs, announcements, and analytics",
+    "contact": {
+      "name": "Admin API Support",
+      "email": "admin@example.com"
+    },
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000/api",
+      "description": "Development server"
+    },
+    {
+      "url": "https://api.example.com",
+      "description": "Production server"
+    }
+  ],
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "User Management",
+      "description": "Operations related to user management"
+    },
+    {
+      "name": "Appointment Management",
+      "description": "Operations related to appointment management"
+    },
+    {
+      "name": "FAQ Management",
+      "description": "Operations related to FAQ management"
+    },
+    {
+      "name": "Announcement Management",
+      "description": "Operations related to announcement management"
+    },
+    {
+      "name": "System Settings",
+      "description": "Operations related to system configuration"
+    },
+    {
+      "name": "Analytics",
+      "description": "Operations related to analytics and reporting"
+    },
+    {
+      "name": "Feedback Management",
+      "description": "Operations related to feedback moderation"
+    }
+  ],
+  "paths": {
+    "/admin/users": {
+      "get": {
+        "tags": [
+          "User Management"
+        ],
+        "summary": "Get all users",
+        "description": "Retrieve all users with their details including student information",
+        "responses": {
+          "200": {
+            "description": "Users retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/inline_response_200"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/users/{id}": {
+      "get": {
+        "tags": [
+          "User Management"
+        ],
+        "summary": "Get user by ID",
+        "description": "Retrieve a specific user by their ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "User ID",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/inline_response_200_1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/inline_response_404"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "User Management"
+        ],
+        "summary": "Delete user",
+        "description": "Delete a user and all associated records",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "User ID",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/inline_response_200_2"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/admin/users/{id}/status": {
+      "put": {
+        "tags": [
+          "User Management"
+        ],
+        "summary": "Update user status",
+        "description": "Update the account status of a user",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "User ID",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/id_status_body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "User status updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/inline_response_200_3"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/admin/appointments": {
+      "get": {
+        "tags": [
+          "Appointment Management"
+        ],
+        "summary": "Get all appointments",
+        "description": "Retrieve all appointments with user information",
+        "responses": {
+          "200": {
+            "description": "Appointments retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/inline_response_200_4"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/appointments/{id}": {
+      "put": {
+        "tags": [
+          "Appointment Management"
+        ],
+        "summary": "Update appointment status",
+        "description": "Update the status of an appointment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Appointment ID",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/appointments_id_body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Appointment status updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Status is required"
+          },
+          "404": {
+            "description": "Appointment not found"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Appointment Management"
+        ],
+        "summary": "Delete appointment",
+        "description": "Delete an appointment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Appointment ID",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Appointment deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Appointment not found"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/admin/faqs": {
+      "get": {
+        "tags": [
+          "FAQ Management"
+        ],
+        "summary": "Get all FAQs",
+        "description": "Retrieve all frequently asked questions",
+        "responses": {
+          "200": {
+            "description": "FAQs retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/inline_response_200_5"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "FAQ Management"
+        ],
+        "summary": "Create new FAQ",
+        "description": "Create a new frequently asked question",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/admin_faqs_body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "FAQ created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/inline_response_201"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Question and answer are required"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/admin/faqs/{id}": {
+      "put": {
+        "tags": [
+          "FAQ Management"
+        ],
+        "summary": "Update FAQ",
+        "description": "Update an existing FAQ",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "FAQ ID",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/faqs_id_body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "FAQ updated successfully"
+          },
+          "404": {
+            "description": "FAQ not found"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "FAQ Management"
+        ],
+        "summary": "Delete FAQ",
+        "description": "Delete an FAQ",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "FAQ ID",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "FAQ deleted successfully"
+          },
+          "404": {
+            "description": "FAQ not found"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/admin/announcements": {
+      "get": {
+        "tags": [
+          "Announcement Management"
+        ],
+        "summary": "Get all announcements",
+        "description": "Retrieve all announcements",
+        "responses": {
+          "200": {
+            "description": "Announcements retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Announcement"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Announcement Management"
+        ],
+        "summary": "Create new announcement",
+        "description": "Create a new announcement",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/admin_announcements_body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Announcement created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/inline_response_201_1"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Title and content are required"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/admin/announcements/{id}": {
+      "put": {
+        "tags": [
+          "Announcement Management"
+        ],
+        "summary": "Update announcement",
+        "description": "Update an existing announcement",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Announcement ID",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/announcements_id_body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Announcement updated successfully"
+          },
+          "400": {
+            "description": "Title and content are required"
+          },
+          "404": {
+            "description": "Announcement not found"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Announcement Management"
+        ],
+        "summary": "Delete announcement",
+        "description": "Delete an announcement",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Announcement ID",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Announcement deleted successfully"
+          },
+          "404": {
+            "description": "Announcement not found"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/admin/settings": {
+      "get": {
+        "tags": [
+          "System Settings"
+        ],
+        "summary": "Get system settings",
+        "description": "Retrieve all system configuration settings",
+        "responses": {
+          "200": {
+            "description": "Settings retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/inline_response_200_6"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/admin/analytics/users": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Get user analytics",
+        "description": "Get user count grouped by role",
+        "responses": {
+          "200": {
+            "description": "User analytics retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/inline_response_200_7"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/admin/analytics/appointments": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Get appointment analytics",
+        "description": "Get appointment count grouped by status",
+        "responses": {
+          "200": {
+            "description": "Appointment analytics retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/inline_response_200_8"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/admin/feedback": {
+      "get": {
+        "tags": [
+          "Feedback Management"
+        ],
+        "summary": "Get all feedback",
+        "description": "Retrieve all user feedback with user information",
+        "responses": {
+          "200": {
+            "description": "Feedback retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/inline_response_200_9"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "description": "Unique user identifier"
+          },
+          "email": {
+            "type": "string",
+            "description": "User email address",
+            "format": "email"
+          },
+          "name": {
+            "type": "string",
+            "description": "User full name"
+          },
+          "phone": {
+            "type": "string",
+            "description": "User phone number"
+          },
+          "role": {
+            "type": "string",
+            "description": "User role",
+            "enum": [
+              "admin",
+              "staff",
+              "student"
+            ]
+          },
+          "account_status": {
+            "type": "boolean",
+            "description": "Account status (active/inactive)"
+          },
+          "create_at": {
+            "type": "string",
+            "description": "Account creation timestamp",
+            "format": "date-time"
+          },
+          "student_number": {
+            "type": "string",
+            "description": "Student number (if user is a student)",
+            "nullable": true
+          }
+        }
+      },
+      "Appointment": {
+        "type": "object",
+        "properties": {
+          "appointment_id": {
+            "type": "integer",
+            "description": "Unique appointment identifier"
+          },
+          "date_and_time": {
+            "type": "string",
+            "description": "Appointment date and time",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "description": "Appointment status",
+            "enum": [
+              "scheduled",
+              "confirmed",
+              "completed",
+              "cancelled"
+            ]
+          },
+          "notes": {
+            "type": "string",
+            "description": "Appointment notes",
+            "nullable": true
+          },
+          "booking_id": {
+            "type": "integer",
+            "description": "Associated booking ID"
+          },
+          "user_id": {
+            "type": "integer",
+            "description": "User who booked the appointment"
+          },
+          "user_name": {
+            "type": "string",
+            "description": "Name of user who booked"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email of user who booked",
+            "format": "email"
+          },
+          "phone": {
+            "type": "string",
+            "description": "Phone of user who booked"
+          }
+        }
+      },
+      "FAQ": {
+        "type": "object",
+        "properties": {
+          "faq_id": {
+            "type": "integer",
+            "description": "Unique FAQ identifier"
+          },
+          "question": {
+            "type": "string",
+            "description": "FAQ question"
+          },
+          "answer": {
+            "type": "string",
+            "description": "FAQ answer"
+          },
+          "category": {
+            "type": "string",
+            "description": "FAQ category",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "description": "FAQ creation timestamp",
+            "format": "date-time"
+          }
+        }
+      },
+      "Announcement": {
+        "type": "object",
+        "properties": {
+          "announcement_id": {
+            "type": "integer",
+            "description": "Unique announcement identifier"
+          },
+          "user_id": {
+            "type": "integer",
+            "description": "ID of user who created announcement"
+          },
+          "title": {
+            "type": "string",
+            "description": "Announcement title"
+          },
+          "content": {
+            "type": "string",
+            "description": "Announcement content"
+          },
+          "created_at": {
+            "type": "string",
+            "description": "Announcement creation timestamp",
+            "format": "date-time"
+          }
+        }
+      },
+      "Feedback": {
+        "type": "object",
+        "properties": {
+          "feedback_id": {
+            "type": "integer",
+            "description": "Unique feedback identifier"
+          },
+          "message": {
+            "type": "string",
+            "description": "Feedback message"
+          },
+          "rating": {
+            "maximum": 5,
+            "minimum": 1,
+            "type": "integer",
+            "description": "Feedback rating"
+          },
+          "submitted_at": {
+            "type": "string",
+            "description": "Feedback submission timestamp",
+            "format": "date-time"
+          },
+          "user_name": {
+            "type": "string",
+            "description": "Name of user who submitted feedback"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email of user who submitted feedback",
+            "format": "email"
+          }
+        }
+      },
+      "SystemSetting": {
+        "type": "object",
+        "properties": {
+          "config_key": {
+            "type": "string",
+            "description": "Configuration key"
+          },
+          "config_value": {
+            "type": "string",
+            "description": "Configuration value"
+          },
+          "description": {
+            "type": "string",
+            "description": "Configuration description"
+          }
+        }
+      },
+      "Analytics": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "description": "User role (for user analytics)"
+          },
+          "status": {
+            "type": "string",
+            "description": "Status (for appointment analytics)"
+          },
+          "count": {
+            "type": "integer",
+            "description": "Count of items"
+          }
+        }
+      },
+      "ApiResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Operation success status"
+          },
+          "message": {
+            "type": "string",
+            "description": "Response message"
+          },
+          "error": {
+            "type": "string",
+            "description": "Error message if any",
+            "nullable": true
+          }
+        }
+      },
+      "inline_response_200": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "users": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/User"
+            }
+          },
+          "count": {
+            "type": "integer",
+            "description": "Total number of users"
+          }
+        }
+      },
+      "inline_response_200_1": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/User"
+          }
+        }
+      },
+      "inline_response_404": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "User not found"
+          }
+        }
+      },
+      "inline_response_200_2": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "User deleted successfully"
+          }
+        }
+      },
+      "id_status_body": {
+        "required": [
+          "account_status"
+        ],
+        "type": "object",
+        "properties": {
+          "account_status": {
+            "type": "boolean",
+            "description": "New account status"
+          }
+        }
+      },
+      "inline_response_200_3": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "User status updated successfully"
+          }
+        }
+      },
+      "inline_response_200_4": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "appointments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Appointment"
+            }
+          },
+          "count": {
+            "type": "integer",
+            "description": "Total number of appointments"
+          }
+        }
+      },
+      "appointments_id_body": {
+        "required": [
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "New appointment status",
+            "enum": [
+              "scheduled",
+              "confirmed",
+              "completed",
+              "cancelled"
+            ]
+          }
+        }
+      },
+      "inline_response_200_5": {
+        "type": "object",
+        "properties": {
+          "faqs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FAQ"
+            }
+          }
+        }
+      },
+      "admin_faqs_body": {
+        "required": [
+          "answer",
+          "question"
+        ],
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "description": "FAQ question"
+          },
+          "answer": {
+            "type": "string",
+            "description": "FAQ answer"
+          },
+          "category": {
+            "type": "string",
+            "description": "FAQ category",
+            "nullable": true
+          }
+        }
+      },
+      "inline_response_201": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "FAQ created successfully"
+          }
+        }
+      },
+      "faqs_id_body": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "description": "FAQ question"
+          },
+          "answer": {
+            "type": "string",
+            "description": "FAQ answer"
+          },
+          "category": {
+            "type": "string",
+            "description": "FAQ category"
+          }
+        }
+      },
+      "admin_announcements_body": {
+        "required": [
+          "content",
+          "title"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Announcement title"
+          },
+          "content": {
+            "type": "string",
+            "description": "Announcement content"
+          }
+        }
+      },
+      "inline_response_201_1": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "Announcement created successfully"
+          }
+        }
+      },
+      "announcements_id_body": {
+        "required": [
+          "content",
+          "title"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Announcement title"
+          },
+          "content": {
+            "type": "string",
+            "description": "Announcement content"
+          }
+        }
+      },
+      "inline_response_200_6": {
+        "type": "object",
+        "properties": {
+          "settings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SystemSetting"
+            }
+          }
+        }
+      },
+      "inline_response_200_7": {
+        "type": "object",
+        "properties": {
+          "analytics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/inline_response_200_7_analytics"
+            }
+          }
+        }
+      },
+      "inline_response_200_8": {
+        "type": "object",
+        "properties": {
+          "analytics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/inline_response_200_8_analytics"
+            }
+          }
+        }
+      },
+      "inline_response_200_9": {
+        "type": "object",
+        "properties": {
+          "feedback": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Feedback"
+            }
+          }
+        }
+      },
+      "inline_response_200_7_analytics": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "description": "User role"
+          },
+          "count": {
+            "type": "integer",
+            "description": "Number of users with this role"
+          }
+        }
+      },
+      "inline_response_200_8_analytics": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Appointment status"
+          },
+          "count": {
+            "type": "integer",
+            "description": "Number of appointments with this status"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}
