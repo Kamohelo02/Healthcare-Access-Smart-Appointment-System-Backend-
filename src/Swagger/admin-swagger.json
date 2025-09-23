@@ -1,466 +1,350 @@
 openapi: 3.0.0
 info:
-  title: Clinic Management System - Admin API
-  description: Admin panel endpoints for managing users, appointments, FAQs, announcements, and system analytics
+  title: Admin Management API
+  description: API documentation for admin management system including users, appointments, FAQs, announcements, and analytics
   version: 1.0.0
   contact:
-    name: API Support
-    email: support@clinic.com
+    name: Admin API Support
+    email: admin@example.com
 
 servers:
-  - url: http://localhost:3000/api/admin
+  - url: http://localhost:3000/api
     description: Development server
-  - url: https://api.clinic.com/admin
+  - url: https://api.example.com
     description: Production server
 
 components:
   securitySchemes:
-    bearerAuth:
+    BearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-  
+
   schemas:
     User:
       type: object
       properties:
         user_id:
           type: integer
-          example: 1
+          description: Unique user identifier
         email:
           type: string
-          example: "user@example.com"
+          format: email
+          description: User email address
         name:
           type: string
-          example: "John Doe"
+          description: User full name
         phone:
           type: string
-          example: "+1234567890"
+          description: User phone number
         role:
           type: string
-          enum: [admin, nurse, student, staff]
-          example: "student"
+          enum: [admin, staff, student]
+          description: User role
         account_status:
-          type: integer
-          enum: [0, 1]
-          example: 1
+          type: boolean
+          description: Account status (active/inactive)
         create_at:
           type: string
           format: date-time
+          description: Account creation timestamp
         student_number:
           type: string
           nullable: true
-          example: "S12345"
-    
-    UserListResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-          example: true
-        users:
-          type: array
-          items:
-            $ref: '#/components/schemas/User'
-        pagination:
-          type: object
-          properties:
-            page:
-              type: integer
-              example: 1
-            limit:
-              type: integer
-              example: 10
-            total:
-              type: integer
-              example: 100
-            pages:
-              type: integer
-              example: 10
-    
+          description: Student number (if user is a student)
+
     Appointment:
       type: object
       properties:
         appointment_id:
           type: integer
-          example: 1
+          description: Unique appointment identifier
         date_and_time:
           type: string
           format: date-time
+          description: Appointment date and time
         status:
           type: string
-          enum: [scheduled, completed, cancelled, no-show]
-          example: "scheduled"
+          enum: [scheduled, confirmed, completed, cancelled]
+          description: Appointment status
         notes:
           type: string
           nullable: true
+          description: Appointment notes
         booking_id:
           type: integer
-          example: 1
-        duration_minutes:
-          type: integer
-          nullable: true
-          example: 30
+          description: Associated booking ID
         user_id:
           type: integer
-          example: 1
+          description: User who booked the appointment
         user_name:
           type: string
-          example: "John Doe"
+          description: Name of user who booked
         email:
           type: string
-          example: "user@example.com"
+          format: email
+          description: Email of user who booked
         phone:
           type: string
-          example: "+1234567890"
-        nurse_name:
-          type: string
-          nullable: true
-          example: "Jane Smith"
-        nurse_id:
-          type: integer
-          nullable: true
-          example: 2
-    
-    AppointmentListResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-          example: true
-        appointments:
-          type: array
-          items:
-            $ref: '#/components/schemas/Appointment'
-        pagination:
-          type: object
-          properties:
-            page:
-              type: integer
-              example: 1
-            limit:
-              type: integer
-              example: 10
-            total:
-              type: integer
-              example: 50
-            pages:
-              type: integer
-              example: 5
-    
+          description: Phone of user who booked
+
     FAQ:
       type: object
       properties:
         faq_id:
           type: integer
-          example: 1
+          description: Unique FAQ identifier
         question:
           type: string
-          example: "How do I book an appointment?"
+          description: FAQ question
         answer:
           type: string
-          example: "You can book through the online portal."
+          description: FAQ answer
         category:
           type: string
-          example: "Booking"
+          nullable: true
+          description: FAQ category
         created_at:
           type: string
           format: date-time
-    
+          description: FAQ creation timestamp
+
     Announcement:
       type: object
       properties:
         announcement_id:
           type: integer
-          example: 1
+          description: Unique announcement identifier
         user_id:
           type: integer
-          example: 1
+          description: ID of user who created announcement
         title:
           type: string
-          example: "System Maintenance"
+          description: Announcement title
         content:
           type: string
-          example: "System will be down for maintenance."
+          description: Announcement content
         created_at:
           type: string
           format: date-time
-    
-    StaffSchedule:
-      type: object
-      properties:
-        schedule_id:
-          type: integer
-          example: 1
-        staff_id:
-          type: integer
-          example: 2
-        staff_name:
-          type: string
-          example: "Jane Smith"
-        work_date:
-          type: string
-          format: date
-        start_time:
-          type: string
-          format: time
-          example: "09:00:00"
-        end_time:
-          type: string
-          format: time
-          example: "17:00:00"
-        notes:
-          type: string
-          nullable: true
-    
+          description: Announcement creation timestamp
+
     Feedback:
       type: object
       properties:
         feedback_id:
           type: integer
-          example: 1
+          description: Unique feedback identifier
         message:
           type: string
-          example: "Great service!"
+          description: Feedback message
         rating:
           type: integer
           minimum: 1
           maximum: 5
-          example: 5
+          description: Feedback rating
         submitted_at:
           type: string
           format: date-time
-        status:
-          type: string
-          enum: [pending, approved, rejected]
-          example: "pending"
+          description: Feedback submission timestamp
         user_name:
           type: string
-          example: "John Doe"
+          description: Name of user who submitted feedback
         email:
           type: string
-          example: "user@example.com"
-    
-    ErrorResponse:
+          format: email
+          description: Email of user who submitted feedback
+
+    SystemSetting:
+      type: object
+      properties:
+        config_key:
+          type: string
+          description: Configuration key
+        config_value:
+          type: string
+          description: Configuration value
+        description:
+          type: string
+          description: Configuration description
+
+    Analytics:
+      type: object
+      properties:
+        role:
+          type: string
+          description: User role (for user analytics)
+        status:
+          type: string
+          description: Status (for appointment analytics)
+        count:
+          type: integer
+          description: Count of items
+
+    ApiResponse:
       type: object
       properties:
         success:
           type: boolean
-          example: false
+          description: Operation success status
         message:
           type: string
-          example: "Error message"
+          description: Response message
         error:
           type: string
-          example: "Detailed error description"
+          nullable: true
+          description: Error message if any
+
+security:
+  - BearerAuth: []
 
 paths:
-  # ==========================
-  # Users Management
-  # ==========================
-  /users:
+  # User Management Endpoints
+  /admin/users:
     get:
       tags:
-        - Users
-      summary: Get all users with pagination and filtering
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: page
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            default: 1
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 10
-        - name: role
-          in: query
-          schema:
-            type: string
-            enum: [admin, nurse, student, staff]
-        - name: status
-          in: query
-          schema:
-            type: string
-            enum: [active, inactive]
+        - User Management
+      summary: Get all users
+      description: Retrieve all users with their details including student information
       responses:
         '200':
           description: Users retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserListResponse'
-        '500':
-          description: Server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /users/search:
-    get:
-      tags:
-        - Users
-      summary: Search users by various fields
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: query
-          in: query
-          required: true
-          schema:
-            type: string
-        - name: field
-          in: query
-          schema:
-            type: string
-            enum: [all, email, name, phone, student_number]
-            default: all
-      responses:
-        '200':
-          description: Search results
-          content:
-            application/json:
-              schema:
                 type: object
                 properties:
                   success:
                     type: boolean
+                    example: true
                   users:
                     type: array
                     items:
                       $ref: '#/components/schemas/User'
                   count:
                     type: integer
-        '400':
-          description: Search query is required
+                    description: Total number of users
         '500':
           description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
 
-  /users/{id}:
-    put:
+  /admin/users/{id}:
+    get:
       tags:
-        - Users
-      summary: Update user information
-      security:
-        - bearerAuth: []
+        - User Management
+      summary: Get user by ID
+      description: Retrieve a specific user by their ID
       parameters:
         - name: id
           in: path
           required: true
           schema:
             type: integer
+          description: User ID
+      responses:
+        '200':
+          description: User retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "User not found"
+        '500':
+          description: Server error
+    delete:
+      tags:
+        - User Management
+      summary: Delete user
+      description: Delete a user and all associated records
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: User ID
+      responses:
+        '200':
+          description: User deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "User deleted successfully"
+        '404':
+          description: User not found
+        '500':
+          description: Server error
+
+  /admin/users/{id}/status:
+    put:
+      tags:
+        - User Management
+      summary: Update user status
+      description: Update the account status of a user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: User ID
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              required:
+                - account_status
               properties:
                 account_status:
-                  type: integer
-                  enum: [0, 1]
+                  type: boolean
+                  description: New account status
       responses:
         '200':
-          description: User updated successfully
-        '404':
-          description: User not found
-        '500':
-          description: Server error
-    
-    delete:
-      tags:
-        - Users
-      summary: Delete a user
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        '200':
-          description: User deleted successfully
-        '404':
-          description: User not found
-        '500':
-          description: Server error
-
-  # ==========================
-  # Appointments Management
-  # ==========================
-  /appointments:
-    get:
-      tags:
-        - Appointments
-      summary: Get all appointments with filtering
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: page
-          in: query
-          schema:
-            type: integer
-            default: 1
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            default: 10
-        - name: status
-          in: query
-          schema:
-            type: string
-            enum: [scheduled, completed, cancelled, no-show]
-        - name: date
-          in: query
-          schema:
-            type: string
-            format: date
-        - name: nurseId
-          in: query
-          schema:
-            type: integer
-      responses:
-        '200':
-          description: Appointments retrieved successfully
+          description: User status updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AppointmentListResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "User status updated successfully"
+        '404':
+          description: User not found
         '500':
           description: Server error
 
-  /appointments/search:
+  # Appointment Management Endpoints
+  /admin/appointments:
     get:
       tags:
-        - Appointments
-      summary: Search appointments
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: query
-          in: query
-          required: true
-          schema:
-            type: string
-        - name: field
-          in: query
-          schema:
-            type: string
-            enum: [all, user_name, email, nurse_name]
-            default: all
+        - Appointment Management
+      summary: Get all appointments
+      description: Retrieve all appointments with user information
       responses:
         '200':
-          description: Search results
+          description: Appointments retrieved successfully
           content:
             application/json:
               schema:
@@ -468,30 +352,34 @@ paths:
                 properties:
                   success:
                     type: boolean
+                    example: true
                   appointments:
                     type: array
                     items:
                       $ref: '#/components/schemas/Appointment'
                   count:
                     type: integer
-        '400':
-          description: Search query is required
+                    description: Total number of appointments
         '500':
           description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
 
-  /appointments/{id}/status:
+  /admin/appointments/{id}:
     put:
       tags:
-        - Appointments
+        - Appointment Management
       summary: Update appointment status
-      security:
-        - bearerAuth: []
+      description: Update the status of an appointment
       parameters:
         - name: id
           in: path
           required: true
           schema:
             type: integer
+          description: Appointment ID
       requestBody:
         required: true
         content:
@@ -503,48 +391,52 @@ paths:
               properties:
                 status:
                   type: string
-                  enum: [scheduled, completed, cancelled, no-show]
+                  enum: [scheduled, confirmed, completed, cancelled]
+                  description: New appointment status
       responses:
         '200':
-          description: Status updated successfully
+          description: Appointment status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
         '400':
           description: Status is required
         '404':
           description: Appointment not found
         '500':
           description: Server error
-
-  /appointments/{id}:
     delete:
       tags:
-        - Appointments
-      summary: Delete an appointment
-      security:
-        - bearerAuth: []
+        - Appointment Management
+      summary: Delete appointment
+      description: Delete an appointment
       parameters:
         - name: id
           in: path
           required: true
           schema:
             type: integer
+          description: Appointment ID
       responses:
         '200':
           description: Appointment deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
         '404':
           description: Appointment not found
         '500':
           description: Server error
 
-  # ==========================
-  # FAQs Management
-  # ==========================
-  /faqs:
+  # FAQ Management Endpoints
+  /admin/faqs:
     get:
       tags:
-        - FAQs
+        - FAQ Management
       summary: Get all FAQs
-      security:
-        - bearerAuth: []
+      description: Retrieve all frequently asked questions
       responses:
         '200':
           description: FAQs retrieved successfully
@@ -559,13 +451,11 @@ paths:
                       $ref: '#/components/schemas/FAQ'
         '500':
           description: Server error
-    
     post:
       tags:
-        - FAQs
-      summary: Create a new FAQ
-      security:
-        - bearerAuth: []
+        - FAQ Management
+      summary: Create new FAQ
+      description: Create a new frequently asked question
       requestBody:
         required: true
         content:
@@ -578,31 +468,43 @@ paths:
               properties:
                 question:
                   type: string
+                  description: FAQ question
                 answer:
                   type: string
+                  description: FAQ answer
                 category:
                   type: string
+                  nullable: true
+                  description: FAQ category
       responses:
         '201':
           description: FAQ created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "FAQ created successfully"
         '400':
           description: Question and answer are required
         '500':
           description: Server error
 
-  /faqs/{id}:
+  /admin/faqs/{id}:
     put:
       tags:
-        - FAQs
-      summary: Update an FAQ
-      security:
-        - bearerAuth: []
+        - FAQ Management
+      summary: Update FAQ
+      description: Update an existing FAQ
       parameters:
         - name: id
           in: path
           required: true
           schema:
             type: integer
+          description: FAQ ID
       requestBody:
         required: true
         content:
@@ -612,10 +514,13 @@ paths:
               properties:
                 question:
                   type: string
+                  description: FAQ question
                 answer:
                   type: string
+                  description: FAQ answer
                 category:
                   type: string
+                  description: FAQ category
       responses:
         '200':
           description: FAQ updated successfully
@@ -623,19 +528,18 @@ paths:
           description: FAQ not found
         '500':
           description: Server error
-    
     delete:
       tags:
-        - FAQs
-      summary: Delete an FAQ
-      security:
-        - bearerAuth: []
+        - FAQ Management
+      summary: Delete FAQ
+      description: Delete an FAQ
       parameters:
         - name: id
           in: path
           required: true
           schema:
             type: integer
+          description: FAQ ID
       responses:
         '200':
           description: FAQ deleted successfully
@@ -644,16 +548,13 @@ paths:
         '500':
           description: Server error
 
-  # ==========================
-  # Announcements Management
-  # ==========================
-  /announcements:
+  # Announcement Management Endpoints
+  /admin/announcements:
     get:
       tags:
-        - Announcements
+        - Announcement Management
       summary: Get all announcements
-      security:
-        - bearerAuth: []
+      description: Retrieve all announcements
       responses:
         '200':
           description: Announcements retrieved successfully
@@ -665,13 +566,11 @@ paths:
                   $ref: '#/components/schemas/Announcement'
         '500':
           description: Server error
-    
     post:
       tags:
-        - Announcements
-      summary: Create a new announcement
-      security:
-        - bearerAuth: []
+        - Announcement Management
+      summary: Create new announcement
+      description: Create a new announcement
       requestBody:
         required: true
         content:
@@ -684,29 +583,39 @@ paths:
               properties:
                 title:
                   type: string
+                  description: Announcement title
                 content:
                   type: string
+                  description: Announcement content
       responses:
         '201':
           description: Announcement created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Announcement created successfully"
         '400':
           description: Title and content are required
         '500':
           description: Server error
 
-  /announcements/{id}:
+  /admin/announcements/{id}:
     put:
       tags:
-        - Announcements
-      summary: Update an announcement
-      security:
-        - bearerAuth: []
+        - Announcement Management
+      summary: Update announcement
+      description: Update an existing announcement
       parameters:
         - name: id
           in: path
           required: true
           schema:
             type: integer
+          description: Announcement ID
       requestBody:
         required: true
         content:
@@ -719,28 +628,31 @@ paths:
               properties:
                 title:
                   type: string
+                  description: Announcement title
                 content:
                   type: string
+                  description: Announcement content
       responses:
         '200':
           description: Announcement updated successfully
+        '400':
+          description: Title and content are required
         '404':
           description: Announcement not found
         '500':
           description: Server error
-    
     delete:
       tags:
-        - Announcements
-      summary: Delete an announcement
-      security:
-        - bearerAuth: []
+        - Announcement Management
+      summary: Delete announcement
+      description: Delete an announcement
       parameters:
         - name: id
           in: path
           required: true
           schema:
             type: integer
+          description: Announcement ID
       responses:
         '200':
           description: Announcement deleted successfully
@@ -749,19 +661,38 @@ paths:
         '500':
           description: Server error
 
-  # ==========================
-  # Analytics
-  # ==========================
-  /analytics/users:
+  # System Settings Endpoints
+  /admin/settings:
+    get:
+      tags:
+        - System Settings
+      summary: Get system settings
+      description: Retrieve all system configuration settings
+      responses:
+        '200':
+          description: Settings retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  settings:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SystemSetting'
+        '500':
+          description: Server error
+
+  # Analytics Endpoints
+  /admin/analytics/users:
     get:
       tags:
         - Analytics
-      summary: Get user analytics by role
-      security:
-        - bearerAuth: []
+      summary: Get user analytics
+      description: Get user count grouped by role
       responses:
         '200':
-          description: User analytics retrieved
+          description: User analytics retrieved successfully
           content:
             application/json:
               schema:
@@ -774,21 +705,22 @@ paths:
                       properties:
                         role:
                           type: string
+                          description: User role
                         count:
                           type: integer
+                          description: Number of users with this role
         '500':
           description: Server error
 
-  /analytics/appointments:
+  /admin/analytics/appointments:
     get:
       tags:
         - Analytics
-      summary: Get appointment analytics by status
-      security:
-        - bearerAuth: []
+      summary: Get appointment analytics
+      description: Get appointment count grouped by status
       responses:
         '200':
-          description: Appointment analytics retrieved
+          description: Appointment analytics retrieved successfully
           content:
             application/json:
               schema:
@@ -801,221 +733,23 @@ paths:
                       properties:
                         status:
                           type: string
+                          description: Appointment status
                         count:
                           type: integer
+                          description: Number of appointments with this status
         '500':
           description: Server error
 
-  /analytics/peak-booking-times:
+  # Feedback Endpoints
+  /admin/feedback:
     get:
       tags:
-        - Analytics
-      summary: Get peak booking times by hour
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Peak times retrieved
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  peakTimes:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        hour:
-                          type: integer
-                        booking_count:
-                          type: integer
-        '500':
-          description: Server error
-
-  /analytics/monthly-appointments:
-    get:
-      tags:
-        - Analytics
-      summary: Get monthly appointment statistics
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: year
-          in: query
-          schema:
-            type: integer
-            default: 2024
-      responses:
-        '200':
-          description: Monthly stats retrieved
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  monthlyAppointments:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        month:
-                          type: integer
-                        appointment_count:
-                          type: integer
-                        completed:
-                          type: integer
-                        cancelled:
-                          type: integer
-                  year:
-                    type: integer
-        '500':
-          description: Server error
-
-  # ==========================
-  # Staff Schedule Management
-  # ==========================
-  /staff/schedules:
-    get:
-      tags:
-        - Staff Schedules
-      summary: Get staff schedules
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Schedules retrieved
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  schedules:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/StaffSchedule'
-        '500':
-          description: Server error
-    
-    post:
-      tags:
-        - Staff Schedules
-      summary: Create a staff schedule
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - staff_id
-                - work_date
-                - start_time
-                - end_time
-              properties:
-                staff_id:
-                  type: integer
-                work_date:
-                  type: string
-                  format: date
-                start_time:
-                  type: string
-                  format: time
-                end_time:
-                  type: string
-                  format: time
-                notes:
-                  type: string
-      responses:
-        '201':
-          description: Schedule created successfully
-        '400':
-          description: Required fields missing
-        '500':
-          description: Server error
-
-  /staff/schedules/{id}:
-    put:
-      tags:
-        - Staff Schedules
-      summary: Update a staff schedule
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                staff_id:
-                  type: integer
-                work_date:
-                  type: string
-                  format: date
-                start_time:
-                  type: string
-                  format: time
-                end_time:
-                  type: string
-                  format: time
-                notes:
-                  type: string
-      responses:
-        '200':
-          description: Schedule updated successfully
-        '404':
-          description: Schedule not found
-        '500':
-          description: Server error
-    
-    delete:
-      tags:
-        - Staff Schedules
-      summary: Delete a staff schedule
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        '200':
-          description: Schedule deleted successfully
-        '404':
-          description: Schedule not found
-        '500':
-          description: Server error
-
-  # ==========================
-  # Feedback Management
-  # ==========================
-  /feedback:
-    get:
-      tags:
-        - Feedback
+        - Feedback Management
       summary: Get all feedback
-      security:
-        - bearerAuth: []
+      description: Retrieve all user feedback with user information
       responses:
         '200':
-          description: Feedback retrieved
+          description: Feedback retrieved successfully
           content:
             application/json:
               schema:
@@ -1028,114 +762,18 @@ paths:
         '500':
           description: Server error
 
-  /feedback/{id}/status:
-    put:
-      tags:
-        - Feedback
-      summary: Update feedback status
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - status
-              properties:
-                status:
-                  type: string
-                  enum: [approved, rejected]
-      responses:
-        '200':
-          description: Status updated successfully
-        '400':
-          description: Valid status required
-        '404':
-          description: Feedback not found
-        '500':
-          description: Server error
-
-  # ==========================
-  # Reports
-  # ==========================
-  /reports/generate:
-    get:
-      tags:
-        - Reports
-      summary: Generate various reports
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: type
-          in: query
-          required: true
-          schema:
-            type: string
-            enum: [appointments, users, analytics]
-        - name: startDate
-          in: query
-          schema:
-            type: string
-            format: date
-        - name: endDate
-          in: query
-          schema:
-            type: string
-            format: date
-      responses:
-        '200':
-          description: Report generated successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  report:
-                    type: object
-                    properties:
-                      type:
-                        type: string
-                      generatedAt:
-                        type: string
-                        format: date-time
-                      dateRange:
-                        type: object
-                        properties:
-                          startDate:
-                            type: string
-                          endDate:
-                            type: string
-                      data:
-                        type: object
-        '400':
-          description: Invalid report type
-        '500':
-          description: Server error
-
 tags:
-  - name: Users
-    description: User management operations
-  - name: Appointments
-    description: Appointment management operations
-  - name: FAQs
-    description: FAQ management operations
-  - name: Announcements
-    description: Announcement management operations
+  - name: User Management
+    description: Operations related to user management
+  - name: Appointment Management
+    description: Operations related to appointment management
+  - name: FAQ Management
+    description: Operations related to FAQ management
+  - name: Announcement Management
+    description: Operations related to announcement management
+  - name: System Settings
+    description: Operations related to system configuration
   - name: Analytics
-    description: System analytics and statistics
-  - name: Staff Schedules
-    description: Staff schedule management
-  - name: Feedback
-    description: User feedback management
-  - name: Reports
-    description: Report generation
+    description: Operations related to analytics and reporting
+  - name: Feedback Management
+    description: Operations related to feedback moderation
