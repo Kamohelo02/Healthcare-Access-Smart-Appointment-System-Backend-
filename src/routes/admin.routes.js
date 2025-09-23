@@ -6,6 +6,7 @@ const role = require("../middleware/role.middleware");
 
 // User management
 router.get("/users", auth, role("admin"), adminController.getAllUsers);
+router.get("/users/search", auth, role("admin"), adminController.searchUsers);
 router.put("/users/:id", auth, role("admin"), adminController.updateUser);
 router.delete("/users/:id", auth, role("admin"), adminController.deleteUser);
 
@@ -20,6 +21,36 @@ router.put("/faqs/:id", auth, role("admin"), adminController.updateFaq);
 router.delete("/faqs/:id", auth, role("admin"), adminController.deleteFaq);
 
 // Announcements
+router.get("/announcements", auth, role("admin"), adminController.getAnnouncements);
 router.post("/announcements", auth, role("admin"), adminController.createAnnouncement);
+router.put("/announcements/:id", auth, role("admin"), adminController.updateAnnouncement);
+router.delete("/announcements/:id", auth, role("admin"), adminController.deleteAnnouncement);
+
+// Appointments
+router.get("/appointments", auth, role("admin"), adminController.getAllAppointments);
+router.get("/appointments/search", auth, role("admin"), adminController.searchAppointments);
+router.put("/appointments/:id/status", auth, role("admin"), adminController.updateAppointmentStatus);
+router.delete("/appointments/:id", auth, role("admin"), adminController.deleteAppointment);
+
+// Analytics
+router.get("/analytics/users", auth, role("admin"), adminController.getUserAnalytics);
+router.get("/analytics/appointments", auth, role("admin"), adminController.getAppointmentAnalytics);
+router.get("/analytics/peak-booking-times", auth, role("admin"), adminController.getPeakBookingTimes);
+router.get("/analytics/appointment-metrics", auth, role("admin"), adminController.getAppointmentMetrics);
+router.get("/analytics/client-types", auth, role("admin"), adminController.getClientTypes);
+router.get("/analytics/monthly-appointments", auth, role("admin"), adminController.getMonthlyAppointments);
+
+// Staff Management
+router.get("/staff/schedules", auth, role("admin"), adminController.getStaffSchedules);
+router.post("/staff/schedules", auth, role("admin"), adminController.createStaffSchedule);
+router.put("/staff/schedules/:id", auth, role("admin"), adminController.updateStaffSchedule);
+router.delete("/staff/schedules/:id", auth, role("admin"), adminController.deleteStaffSchedule);
+
+// Feedback Management
+router.get("/feedback", auth, role("admin"), adminController.getAllFeedback);
+router.put("/feedback/:id/status", auth, role("admin"), adminController.updateFeedbackStatus);
+
+// Reports
+router.get("/reports/generate", auth, role("admin"), adminController.generateReport);
 
 module.exports = router;
