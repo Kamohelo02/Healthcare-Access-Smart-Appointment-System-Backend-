@@ -1,126 +1,137 @@
 -- Core identity table
 CREATE TABLE UserAccount (
-    user_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT IDENTITY(1,1) PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
     name VARCHAR(255) NOT NULL,
-    phone VARCHAR(25) UNIQUE NOT NULL,
+    phone VARCHAR(25),
     password_hash VARCHAR(255) NOT NULL,
-    account_status TINYINT(1) DEFAULT 1,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    account_status BIT DEFAULT 1,
+    created_at DATETIME DEFAULT GETDATE(),
     role VARCHAR(50) NOT NULL
 );
 
--- Students
+-- Extends User with academic details for students
 CREATE TABLE Student (
-    user_id INT PRIMARY KEY,
-    student_number VARCHAR(20) UNIQUE NOT NULL,
-    CONSTRAINT FK_Student_User FOREIGN KEY (user_id) REFERENCES UserAccount(user_id) ON DELETE CASCADE
+    user_id INT PRIMARY KEY REFERENCES UserAccount(user_id) ON DELETE CASCADE,
+    student_number VARCHAR(20) UNIQUE NOT NULL
 );
 
--- Staff
+-- Extends User with professional details for clinic personnel
 CREATE TABLE Staff (
-    user_id INT PRIMARY KEY,
+    user_id INT PRIMARY KEY REFERENCES UserAccount(user_id) ON DELETE CASCADE,
     position VARCHAR(255) NOT NULL,
-    is_admin TINYINT(1) DEFAULT 0,
-    CONSTRAINT FK_Staff_User FOREIGN KEY (user_id) REFERENCES UserAccount(user_id) ON DELETE CASCADE
+    is_admin BIT DEFAULT 0
 );
 
--- Administrators
-CREATE TABLE Administrator (
-   user_id INT PRIMARY KEY,
-   CONSTRAINT FK_Admin_User FOREIGN KEY (user_id) REFERENCES UserAccount(user_id) ON DELETE CASCADE
-);
+-- Tracks -- Appointment workflow tables
 
--- Booking
+appointment requests before approval/rescheduling
 CREATE TABLE Booking (
-    booking_id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT,
-    status VARCHAR(50),
-    requested_time_date DATETIME,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    booking_id INT IDENTITY(1,1) PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES UserAccount(user_id) ON DELETE CASCADE,
+    status VARCHAR(50) DEFAULT 'requested',
+    requested_time_date DATETIME NOT NULL,
+    created_at DATETIME DEFAULT GETDATE(),
     processed_at DATETIME,
-    CONSTRAINT FK_Booking_User FOREIGN KEY (user_id) REFERENCES UserAccount(user_id) ON DELETE CASCADE
+    service_id INT NOT NULL FOREIGN KEY REFERENCES ServiceType(service_id) ON DELETE CASCADE;
 );
 
--- Appointments
+-- Finalized appointments derived from approved bookings
 CREATE TABLE Appointment (
-    appointment_id INT AUTO_INCREMENT PRIMARY KEY,
-    booking_id INT,
-    date_and_time DATETIME,
-    status VARCHAR(25),
-    notes VARCHAR(255),
-    CONSTRAINT FK_Appointment_Booking FOREIGN KEY (booking_id) REFERENCES Booking(booking_id) ON DELETE CASCADE
+    appointment_id INT IDENTITY(1,1) PRIMARY KEY,
+    booking_id INT NOT NULL REFERENCES Booking(booking_id) ON DELETE CASCADE,
+    date_and_time DATETIME NOT NULL,
+    status VARCHAR(25) DEFAULT 'scheduled',
+    duration_minutes INT;
+
 );
 
--- TimeSlots
+-- Manages staff availability windows for scheduling
 CREATE TABLE TimeSlot (
-    slot_id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
+    slot_id INT IDENTITY(1,1) PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES UserAccount(user_id) ON DELETE CASCADE,
     date DATE NOT NULL,
     start_time DATETIME NOT NULL,
     end_time DATETIME,
-    CONSTRAINT FK_TimeSlot_User FOREIGN KEY (user_id) REFERENCES UserAccount(user_id) ON DELETE CASCADE
+    status VARCHAR(20) DEFAULT 'available'
 );
+-- Communication tables
 
--- Notifications
 CREATE TABLE Notification (
-    notification_id INT AUTO_INCREMENT PRIMARY KEY,
-    appointment_id INT NOT NULL,
-    content TEXT NOT NULL,
-    status VARCHAR(50),
+    notification_id INT IDENTITY(1,1) PRIMARY KEY,
+    appointment_id INT NOT NULL REFERENCES Appointment(appointment_id) ON DELETE CASCADE,
+    content VARCHAR(MAX) NOT NULL,
+    status VARCHAR(50) DEFAULT 'sent',
     type VARCHAR(50),
-    sent_at DATETIME,
-    CONSTRAINT FK_Notification_Appointment FOREIGN KEY (appointment_id) REFERENCES Appointment(appointment_id) ON DELETE CASCADE
+    sent_at DATETIME DEFAULT GETDATE()
 );
 
--- Announcements
+-- Clinic-wide announcements
 CREATE TABLE Announcement (
-    announcement_id INT AUTO_INCREMENT PRIMARY KEY,
-    title VARCHAR(255),
-    content TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    admin_id INT,
-    CONSTRAINT FK_Announcement_Admin FOREIGN KEY (admin_id) REFERENCES Administrator(user_id) ON DELETE CASCADE
+    announcement_id INT IDENTITY(1,1) PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES UserAccount(user_id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    content VARCHAR(500) NOT NULL,
+    created_at DATETIME DEFAULT GETDATE()
 );
 
--- Feedback
+-- Patient feedback about appointments or services
 CREATE TABLE Feedback (
-    feedback_id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    appointment_id INT NOT NULL,
-    message TEXT,
-    rating INT,
-    submitted_at DATETIME NOT NULL,
-    CONSTRAINT FK_Feedback_User FOREIGN KEY (user_id) REFERENCES UserAccount(user_id) ON DELETE CASCADE,
-    CONSTRAINT FK_Feedback_Appointment FOREIGN KEY (appointment_id) REFERENCES Appointment(appointment_id) ON DELETE CASCADE
+    feedback_id INT IDENTITY(1,1) PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES UserAccount(user_id) ON DELETE CASCADE,
+    appointment_id INT NOT NULL REFERENCES Appointment(appointment_id) ON DELETE CASCADE,
+    message VARCHAR(MAX) NOT NULL,
+    rating INT CHECK (rating >= 1 AND rating <= 5),
+    submitted_at DATETIME DEFAULT GETDATE(),
+    status VARCHAR(20) DEFAULT 'pending'
 );
 
--- System Config
+-- service type table predefined services for clients 
+CREATE TABLE ServiceType (
+    service_id INT IDENTITY(1,1) PRIMARY KEY,
+    category VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    description VARCHAR(255) NOT NULL,
+    price DECIMAL(10,2) NULL
+);
+
+-- System management tables
+
+-- Configurable business rules
 CREATE TABLE SystemConfiguration (
-    configure_id INT AUTO_INCREMENT PRIMARY KEY,
-    config_key VARCHAR(100) NOT NULL,
+    config_id INT IDENTITY(1,1) PRIMARY KEY,
+    config_key VARCHAR(100) UNIQUE NOT NULL,
     config_value VARCHAR(255) NOT NULL,
     description VARCHAR(255) NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT GETDATE()
 );
 
--- Audit Logs
+-- Audit trail for security/compliance
 CREATE TABLE AuditLog (
-    audit_id INT AUTO_INCREMENT PRIMARY KEY,
+    audit_id INT IDENTITY(1,1) PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES UserAccount(user_id) ON DELETE CASCADE,
     log_type VARCHAR(50) NOT NULL,
     message VARCHAR(255) NOT NULL,
-    logged_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-    admin_id INT NOT NULL,
-    CONSTRAINT FK_AuditLog_Admin FOREIGN KEY (admin_id) REFERENCES Administrator(user_id) ON DELETE CASCADE
+    logged_time DATETIME DEFAULT GETDATE()
 );
 
--- FAQs
+-- Predefined answers for common student queries
 CREATE TABLE FAQ (
-    faq_id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    question VARCHAR(255),
-    answer VARCHAR(255),
+    faq_id INT IDENTITY(1,1) PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES UserAccount(user_id) ON DELETE CASCADE,
+    question VARCHAR(255) NOT NULL,
+    answer VARCHAR(255) NOT NULL,
     category VARCHAR(100),
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT FK_FAQ_User FOREIGN KEY (user_id) REFERENCES UserAccount(user_id) ON DELETE CASCADE
+    created_at DATETIME DEFAULT GETDATE()
+);
+
+-- Additional table for appointment rescheduling history
+CREATE TABLE AppointmentHistory (
+    history_id INT IDENTITY(1,1) PRIMARY KEY,
+    appointment_id INT NOT NULL REFERENCES Appointment(appointment_id) ON DELETE CASCADE,
+    old_date_time DATETIME,
+    new_date_time DATETIME,
+    reason VARCHAR(255),
+    changed_by INT REFERENCES UserAccount(user_id),
+    changed_at DATETIME DEFAULT GETDATE()
 );
