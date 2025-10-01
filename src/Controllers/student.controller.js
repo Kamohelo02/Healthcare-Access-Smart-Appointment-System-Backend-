@@ -87,32 +87,129 @@ exports.getNotifications = async (req, res) => {
   }
 };
 
-/** FAQS **/
+// FAQS 
 exports.getFaqs = async (req, res) => {
   try {
-    const { category } = req.query;
+    const { search, page = 1, limit = 10 } = req.query;
     const pool = await poolPromise;
 
-    let result;
-    if (category) {
-      result = await pool.request()
-        .input("category", sql.VarChar, category)
-        .query(`
-          SELECT faq_id, question, answer, category, created_at, user_id
-          FROM FAQ WHERE category = @category 
-          ORDER BY created_at DESC
-        `);
-    } else {
-      result = await pool.request()
-        .query(`
-          SELECT faq_id, question, answer, category, created_at, user_id 
-          FROM FAQ ORDER BY created_at DESC
-        `);
+    // Build the base query
+    let baseQuery = `
+      SELECT faq_id, question, answer, category, created_at 
+      FROM FAQ 
+      WHERE 1=1
+    `;
+    
+    const request = pool.request();
+
+    // Add search filter if provided
+    if (search && search.trim() !== '') {
+      baseQuery += " AND (question LIKE @search OR answer LIKE @search)";
+      request.input("search", sql.VarChar, `%${search.trim()}%`);
     }
-    res.json({ faqs: result.recordset });
+
+    // Add ordering
+    baseQuery += ' ORDER BY created_at DESC';
+
+    // Add pagination
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    baseQuery += ` OFFSET ${offset} ROWS FETCH NEXT ${parseInt(limit)} ROWS ONLY`;
+
+    // Execute the main query
+    const result = await request.query(baseQuery);
+
+    // Get total count for pagination
+    let countQuery = `SELECT COUNT(*) as total FROM FAQ WHERE 1=1`;
+    if (search && search.trim() !== '') {
+      countQuery += " AND (question LIKE @search OR answer LIKE @search)";
+    }
+    
+    const countResult = await request.query(countQuery);
+    const total = countResult.recordset[0].total;
+
+    res.json({ 
+      faqs: result.recordset,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: total,
+        totalPages: Math.ceil(total / parseInt(limit))
+      },
+      search: {
+        currentSearch: search || '',
+        hasSearch: !!(search && search.trim() !== '')
+      }
+    });
+
   } catch (err) {
     console.error("FAQs error:", err);
     res.status(500).json({ message: "Server error fetching FAQs" });
+  }
+};
+
+// ANNOUNCEMENTS - SEARCH AND FILTER 
+exports.getAnnouncements = async (req, res) => {
+  try {
+    const { search, page = 1, limit = 10 } = req.query;
+    const pool = await poolPromise;
+
+    // Build the base query
+    let baseQuery = `
+      SELECT a.announcement_id, a.title, a.content, a.created_at,
+             u.name as author_name
+      FROM Announcement a
+      INNER JOIN UserAccount u ON a.user_id = u.user_id
+      WHERE 1=1
+    `;
+    
+    const request = pool.request();
+
+    // Add search filter if provided
+    if (search && search.trim() !== '') {
+      baseQuery += " AND (a.title LIKE @search OR a.content LIKE @search)";
+      request.input("search", sql.VarChar, `%${search.trim()}%`);
+    }
+
+    // Add ordering (newest first)
+    baseQuery += ' ORDER BY a.created_at DESC';
+
+    // Add pagination
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    baseQuery += ` OFFSET ${offset} ROWS FETCH NEXT ${parseInt(limit)} ROWS ONLY`;
+
+    // Execute the main query
+    const result = await request.query(baseQuery);
+
+    // Get total count for pagination
+    let countQuery = `
+      SELECT COUNT(*) as total 
+      FROM Announcement a
+      WHERE 1=1
+    `;
+    if (search && search.trim() !== '') {
+      countQuery += " AND (a.title LIKE @search OR a.content LIKE @search)";
+    }
+    
+    const countResult = await request.query(countQuery);
+    const total = countResult.recordset[0].total;
+
+    res.json({ 
+      announcements: result.recordset,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: total,
+        totalPages: Math.ceil(total / parseInt(limit))
+      },
+      search: {
+        currentSearch: search || '',
+        hasSearch: !!(search && search.trim() !== '')
+      }
+    });
+
+  } catch (err) {
+    console.error("Announcements error:", err);
+    res.status(500).json({ message: "Server error fetching announcements" });
   }
 };
 
