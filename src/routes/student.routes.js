@@ -9,9 +9,10 @@ const role = require("../middleware/role.middleware");
 router.get("/profile", auth, studentController.getProfile);
 router.put("/profile", auth, studentController.updateProfile);
 
-// fetching appointments & notification
+// fetching faq, notification, announcements
 router.get("/notifications", auth, studentController.getNotifications);
 router.get("/faqs", auth, studentController.getFaqs);
+router.get("/announcements", auth, studentController.getAnnouncements);
 
 // Appointments
 router.post("/appointments", auth, studentController.bookAppointment);
