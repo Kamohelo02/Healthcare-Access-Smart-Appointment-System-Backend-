@@ -214,6 +214,7 @@ exports.getAnnouncements = async (req, res) => {
 };
 
 /** APPOINTMENTS **/
+// Book appointment
 exports.bookAppointment = async (req, res) => {
   try {
     const userId = req.user.user_id;
@@ -373,4 +374,5 @@ exports.submitFeedback = async (req, res) => {
     console.error("Feedback error:", err);
     res.status(500).json({ message: "Server error submitting feedback" });
   }
+
 };
