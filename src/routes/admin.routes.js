@@ -7,7 +7,9 @@ const role = require("../middleware/role.middleware");
 // User management
 router.get("/users", auth, role("admin"), adminController.getAllUsers);
 router.get("/users/search", auth, role("admin"), adminController.searchUsers);
-router.put("/users/:id", auth, role("admin"), adminController.updateUser);
+router.get("/users/:id", auth, role("admin"), adminController.getUserById);
+router.put("/users/:id", auth, role("admin"), adminController.updateUser); 
+router.patch("/users/:id/status", auth, role("admin"), adminController.updateUserStatus); 
 router.delete("/users/:id", auth, role("admin"), adminController.deleteUser);
 
 // System settings
@@ -26,10 +28,12 @@ router.post("/announcements", auth, role("admin"), adminController.createAnnounc
 router.put("/announcements/:id", auth, role("admin"), adminController.updateAnnouncement);
 router.delete("/announcements/:id", auth, role("admin"), adminController.deleteAnnouncement);
 
+console.log("sendNotification type:", typeof adminController.sendNotification);
+
 // Appointments
 router.get("/appointments", auth, role("admin"), adminController.getAllAppointments);
-router.get("/appointments/search", auth, role("admin"), adminController.searchAppointments);
-router.put("/appointments/:id/status", auth, role("admin"), adminController.updateAppointmentStatus);
+router.get("/appointments/search", auth, role(["admin", "staff"]), adminController.searchAppointments);
+router.put("/appointments/:id/status", auth, role(["admin", "staff"]), adminController.updateAppointmentStatus);
 router.delete("/appointments/:id", auth, role("admin"), adminController.deleteAppointment);
 
 // Analytics
@@ -52,5 +56,20 @@ router.put("/feedback/:id/status", auth, role("admin"), adminController.updateFe
 
 // Reports
 router.get("/reports/generate", auth, role("admin"), adminController.generateReport);
+
+
+// Notification management
+router.get("/notifications", auth, role(["admin", "staff"]), adminController.getAllNotifications);
+router.get("/notifications/:id", auth, role(["admin", "staff"]), adminController.getNotificationById);
+router.put("/notifications/:id/status", auth, role(["admin", "staff"]), adminController.updateNotificationStatus);
+router.delete("/notifications/:id", auth, role("admin"), adminController.deleteNotification);
+
+router.post("/send", auth, role(["admin", "staff"]), adminController.sendNotification);
+
+
+// Bulk operations
+router.post("/appointments/bulk-status", auth, role(["admin", "staff"]), adminController.bulkUpdateAppointmentStatus);
+router.post("/users/bulk-status", auth, role("admin"), adminController.bulkUpdateUserStatus);
+
 
 module.exports = router;

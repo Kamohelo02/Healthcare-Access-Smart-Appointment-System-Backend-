@@ -1,9 +1,11 @@
 const express = require("express");
 const router = express.Router();
 const authController = require("../controllers/auth.controller");
+const { sql, poolPromise } = require("../config/db");
 const auth = require("../middleware/auth.middleware");
 
-router.get("auth/debug/useraccount-columns", async (req, res) => {
+// ✅ FIXED: Remove the leading "auth/" 
+router.get("/debug/useraccount-columns", async (req, res) => {
   try {
     const pool = await poolPromise;
     const result = await pool.request()
@@ -22,19 +24,12 @@ router.get("auth/debug/useraccount-columns", async (req, res) => {
 
 // Debug middleware
 router.use((req, res, next) => {
-  console.log(`Auth route: ${req.method} ${req.url}`);
-  next();
-});
-
-
-// Auth routes
-router.post("/register", authController.register);
-router.post("/login", authController.login);
-
-// Debug middleware
-router.use((req, res, next) => {
   console.log("Auth route called:", req.method, req.url);
   next();
 });
+
+// Auth routes (these are correct)
+router.post("/register", authController.register);
+router.post("/login", authController.login);
 
 module.exports = router;
