@@ -1,4 +1,17 @@
 const { sql, poolPromise } = require("../config/db");
+const sendSMSNotification = require("../Utils/sendSMSNotification") 
+const bcrypt = require('bcryptjs');
+const twilio = require('twilio');
+
+
+// Initialize Twilio client
+const twilioClient = twilio(
+  process.env.TWILIO_ACCOUNT_SID, 
+  process.env.TWILIO_AUTH_TOKEN
+);
+
+
+
 
 // ==========================
 // Users Management
@@ -10,7 +23,7 @@ exports.getAllUsers = async (req, res) => {
 
     const pool = await poolPromise;
     let query = `
-      SELECT u.user_id, u.email, u.name, u.phone, u.role, u.account_status, u.create_at,
+      SELECT u.user_id, u.email, u.name, u.phone, u.role, u.account_status, u.created_at,
              s.student_number
       FROM UserAccount u
       LEFT JOIN Student s ON u.user_id = s.user_id
@@ -33,7 +46,7 @@ exports.getAllUsers = async (req, res) => {
       query += ` WHERE ${whereConditions.join(' AND ')}`;
     }
 
-    query += ` ORDER BY u.create_at DESC OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY`;
+    query += ` ORDER BY u.created_at DESC OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY`;
 
     const request = pool.request();
     Object.keys(inputs).forEach(key => {
@@ -83,7 +96,7 @@ exports.getUserById = async (req, res) => {
     const result = await pool.request()
       .input("userId", sql.Int, id)
       .query(`
-        SELECT u.user_id, u.email, u.name, u.phone, u.role, u.account_status, u.create_at,
+        SELECT u.user_id, u.email, u.name, u.phone, u.role, u.account_status, u.created_at,
                s.student_number
         FROM UserAccount u
         LEFT JOIN Student s ON u.user_id = s.user_id
@@ -111,7 +124,7 @@ exports.searchUsers = async (req, res) => {
 
     const pool = await poolPromise;
     let searchQuery = `
-      SELECT u.user_id, u.email, u.name, u.phone, u.role, u.account_status, u.create_at,
+      SELECT u.user_id, u.email, u.name, u.phone, u.role, u.account_status, u.created_at,
              s.student_number
       FROM UserAccount u
       LEFT JOIN Student s ON u.user_id = s.user_id
@@ -138,7 +151,7 @@ exports.searchUsers = async (req, res) => {
         searchConditions.push(`(u.email LIKE @query OR u.name LIKE @query OR u.phone LIKE @query OR s.student_number LIKE @query)`);
     }
 
-    searchQuery += searchConditions.join(' OR ') + ` ORDER BY u.create_at DESC`;
+    searchQuery += searchConditions.join(' OR ') + ` ORDER BY u.created_at DESC`;
 
     const result = await pool.request()
       .input('query', sql.VarChar, `%${query}%`)
@@ -185,6 +198,127 @@ exports.updateUserStatus = async (req, res) => {
   }
 };
 
+exports.updateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { email, name, phone, account_status, student_number, password } = req.body;
+
+    const pool = await poolPromise;
+    
+    let updateFields = [];
+    const inputs = { userId: id };
+
+    if (email !== undefined) {
+      updateFields.push('email = @email');
+      inputs.email = email;
+    }
+
+    if (name !== undefined) {
+      updateFields.push('name = @name');
+      inputs.name = name;
+    }
+
+    if (phone !== undefined) {
+      updateFields.push('phone = @phone');
+      inputs.phone = phone;
+    }
+
+    if (account_status !== undefined) {
+      updateFields.push('account_status = @account_status');
+      inputs.account_status = account_status;
+    }
+
+    if (password !== undefined) {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      updateFields.push('password_hash = @password_hash');
+      inputs.password_hash = hashedPassword;
+    }
+
+    if (updateFields.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "No fields provided for update" 
+      });
+    }
+
+    const updateUserQuery = `
+      UPDATE UserAccount 
+      SET ${updateFields.join(', ')} 
+      WHERE user_id = @userId
+    `;
+
+    const request = pool.request();
+    Object.keys(inputs).forEach(key => {
+      request.input(key, key === 'account_status' ? sql.Bit : sql.VarChar, inputs[key]);
+    });
+
+    const userResult = await request.query(updateUserQuery);
+
+    if (!userResult.rowsAffected[0]) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "User not found" 
+      });
+    }
+
+    if (student_number !== undefined) {
+      const studentCheck = await pool.request()
+        .input('userId', sql.Int, id)
+        .query('SELECT * FROM Student WHERE user_id = @userId');
+
+      if (studentCheck.recordset.length > 0) {
+        await pool.request()
+          .input('userId', sql.Int, id)
+          .input('student_number', sql.VarChar, student_number)
+          .query('UPDATE Student SET student_number = @student_number WHERE user_id = @userId');
+      } else {
+        const userRoleCheck = await pool.request()
+          .input('userId', sql.Int, id)
+          .query('SELECT role FROM UserAccount WHERE user_id = @userId');
+        
+        if (userRoleCheck.recordset[0]?.role === 'student') {
+          await pool.request()
+            .input('userId', sql.Int, id)
+            .input('student_number', sql.VarChar, student_number)
+            .query('INSERT INTO Student (user_id, student_number) VALUES (@userId, @student_number)');
+        }
+      }
+    }
+
+    const updatedUser = await pool.request()
+      .input("userId", sql.Int, id)
+      .query(`
+        SELECT u.user_id, u.email, u.name, u.phone, u.role, u.account_status, u.created_at,
+               s.student_number
+        FROM UserAccount u
+        LEFT JOIN Student s ON u.user_id = s.user_id
+        WHERE u.user_id = @userId
+      `);
+
+    res.json({
+      success: true,
+      message: "User updated successfully",
+      user: updatedUser.recordset[0]
+    });
+
+  } catch (err) {
+    console.error("❌ Update user error:", err);
+    
+    if (err.number === 2627 || err.message.includes('duplicate')) {
+      return res.status(400).json({
+        success: false,
+        message: "Email already exists"
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Server error updating user",
+      error: err.message,
+    });
+  }
+};
+
 exports.deleteUser = async (req, res) => {
   const transaction = new sql.Transaction(await poolPromise);
   try {
@@ -192,7 +326,6 @@ exports.deleteUser = async (req, res) => {
 
     await transaction.begin();
 
-    // Delete child records first
     await transaction.request()
       .input("userId", sql.Int, id)
       .query("DELETE FROM Student WHERE user_id = @userId");
@@ -201,7 +334,6 @@ exports.deleteUser = async (req, res) => {
       .input("userId", sql.Int, id)
       .query("DELETE FROM Staff WHERE user_id = @userId");
 
-    // Delete user
     const result = await transaction.request()
       .input("userId", sql.Int, id)
       .query("DELETE FROM UserAccount WHERE user_id = @userId");
@@ -217,6 +349,62 @@ exports.deleteUser = async (req, res) => {
     await transaction.rollback();
     console.error("Delete user error:", err);
     res.status(500).json({ message: "Server error deleting user" });
+  }
+};
+
+// ==========================
+// System Settings
+// ==========================
+exports.getSettings = async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    const result = await pool.request().query(`
+      SELECT config_key, config_value, description 
+      FROM SystemConfiguration
+    `);
+
+    res.json({ settings: result.recordset });
+  } catch (err) {
+    console.error("Get settings error:", err);
+    res.status(500).json({ message: "Server error fetching settings" });
+  }
+};
+
+exports.updateSettings = async (req, res) => {
+  try {
+    const { settings } = req.body;
+    
+    if (!settings || typeof settings !== 'object') {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Settings object is required" 
+      });
+    }
+
+    const pool = await poolPromise;
+    
+    for (const [key, value] of Object.entries(settings)) {
+      await pool.request()
+        .input('key', sql.VarChar, key)
+        .input('value', sql.VarChar, value)
+        .query(`
+          UPDATE SystemConfiguration 
+          SET config_value = @value 
+          WHERE config_key = @key
+        `);
+    }
+
+    res.json({ 
+      success: true,
+      message: "Settings updated successfully" 
+    });
+  } catch (err) {
+    console.error("Update settings error:", err);
+    res.status(500).json({ 
+      success: false,
+      message: "Server error updating settings",
+      error: err.message 
+    });
   }
 };
 
@@ -242,11 +430,11 @@ exports.getAllAppointments = async (req, res) => {
         u.email,
         u.phone,
         st.name as nurse_name,
-        st.staff_id as nurse_id
+        st.user_id as nurse_id
       FROM Appointment a
       INNER JOIN Booking b ON a.booking_id = b.booking_id
       INNER JOIN UserAccount u ON b.user_id = u.user_id
-      LEFT JOIN Staff st ON a.assigned_nurse_id = st.staff_id
+      LEFT JOIN Staff st ON a.assigned_nurse_id = st.user_id
     `;
 
     const whereConditions = [];
@@ -280,7 +468,6 @@ exports.getAllAppointments = async (req, res) => {
 
     const result = await request.query(query);
 
-    // Get total count
     let countQuery = `SELECT COUNT(*) as total FROM Appointment a INNER JOIN Booking b ON a.booking_id = b.booking_id`;
     if (whereConditions.length > 0) {
       countQuery += ` WHERE ${whereConditions.join(' AND ')}`;
@@ -385,7 +572,6 @@ exports.deleteAppointment = async (req, res) => {
 
     const pool = await poolPromise;
     
-    // First, check if appointment exists
     const checkResult = await pool.request()
       .input("appointmentId", sql.Int, id)
       .query("SELECT appointment_id FROM Appointment WHERE appointment_id = @appointmentId");
@@ -397,7 +583,6 @@ exports.deleteAppointment = async (req, res) => {
       });
     }
 
-    // Delete the appointment
     const result = await pool.request()
       .input("appointmentId", sql.Int, id)
       .query("DELETE FROM Appointment WHERE appointment_id = @appointmentId");
@@ -424,9 +609,11 @@ exports.deleteAppointment = async (req, res) => {
 };
 
 exports.updateAppointmentStatus = async (req, res) => {
+  let transaction;
+  
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, notes } = req.body;
 
     if (!status) {
       return res.status(400).json({ 
@@ -436,31 +623,123 @@ exports.updateAppointmentStatus = async (req, res) => {
     }
 
     const pool = await poolPromise;
-    const result = await pool.request()
+    transaction = new sql.Transaction(pool);
+    await transaction.begin();
+
+    // 1. Get appointment details
+    const appointmentResult = await transaction.request()
       .input("appointmentId", sql.Int, id)
-      .input("status", sql.VarChar, status)
       .query(`
-        UPDATE Appointment 
-        SET status = @status 
-        WHERE appointment_id = @appointmentId
+        SELECT 
+          a.appointment_id, 
+          a.date_and_time, 
+          a.status as old_status,
+          u.user_id,
+          u.name as user_name,
+          u.phone,
+          u.email
+        FROM Appointment a
+        INNER JOIN Booking b ON a.booking_id = b.booking_id
+        INNER JOIN UserAccount u ON b.user_id = u.user_id
+        WHERE a.appointment_id = @appointmentId
       `);
 
-    if (result.rowsAffected[0] === 0) {
+    if (appointmentResult.recordset.length === 0) {
+      await transaction.rollback();
       return res.status(404).json({ 
         success: false,
         message: "Appointment not found" 
       });
     }
 
+    const appointment = appointmentResult.recordset[0];
+    const oldStatus = appointment.old_status;
+
+    // 2. Update Appointment status
+    await transaction.request()
+      .input("appointmentId", sql.Int, id)
+      .input("status", sql.VarChar, status)
+      .input("notes", sql.NVarChar, notes || null)
+      .query(`
+        UPDATE Appointment
+        SET status = @status, notes = COALESCE(@notes, notes)
+        WHERE appointment_id = @appointmentId
+      `);
+
+    // 3. ALWAYS UPDATE the notification (assumes it always exists)
+    const formattedDate = new Date(appointment.date_and_time).toLocaleString();
+    let messageContent = '';
+    
+    switch (status.toLowerCase()) {
+      case 'confirmed':
+        messageContent = `✅ CONFIRMED: Your appointment on ${formattedDate} has been confirmed. See you then!`;
+        break;
+      case 'cancelled':
+        messageContent = `❌ CANCELLED: Your appointment on ${formattedDate} has been cancelled. Contact us to reschedule.`;
+        break;
+      case 'completed':
+        messageContent = `🎉 COMPLETED: Your appointment on ${formattedDate} is complete. Thank you for visiting!`;
+        break;
+      case 'rescheduled':
+        messageContent = `📅 RESCHEDULED: Your appointment has been rescheduled to ${formattedDate}.`;
+        break;
+      default:
+        messageContent = `Your appointment status has been updated to: ${status}`;
+    }
+
+    // Update the existing notification
+    const notificationResult = await transaction.request()
+      .input("appointmentId", sql.Int, id)
+      .input("content", sql.NVarChar, messageContent)
+      .input("status", sql.VarChar, "unread")
+      .input("type", sql.VarChar, "appointment_status")
+      .query(`
+        UPDATE Notification 
+        SET content = @content,
+            status = @status,
+            type = @type,
+            sent_at = GETDATE()
+        WHERE appointment_id = @appointmentId
+      `);
+
+    // If no notification was updated, create one
+    if (notificationResult.rowsAffected[0] === 0) {
+      await transaction.request()
+        .input("userId", sql.Int, appointment.user_id)
+        .input("appointmentId", sql.Int, id)
+        .input("content", sql.NVarChar, messageContent)
+        .input("type", sql.VarChar, "appointment_status")
+        .query(`
+          INSERT INTO Notification (user_id, appointment_id, content, type, status, sent_at)
+          VALUES (@userId, @appointmentId, @content, @type, 'unread', GETDATE())
+        `);
+    }
+
+    await transaction.commit();
+
+    // 4. Send SMS
+    const allowedStatuses = ["confirmed", "cancelled", "completed", "rescheduled"];
+    if (allowedStatuses.includes(status.toLowerCase()) && appointment.phone && oldStatus !== status) {
+      await sendSMSNotification(appointment.phone, messageContent, appointment.user_id);
+    }
+
     res.json({ 
       success: true,
-      message: "Appointment status updated successfully" 
+      message: "Appointment status and notification updated successfully",
+      data: {
+        appointmentId: id,
+        newStatus: status,
+        notificationUpdated: true,
+        smsSent: !!(appointment.phone && oldStatus !== status)
+      }
     });
+
   } catch (err) {
-    console.error("Update appointment error:", err);
+    if (transaction) await transaction.rollback();
+    console.error("Update appointment status error:", err);
     res.status(500).json({ 
       success: false,
-      message: "Server error updating appointment",
+      message: "Server error updating appointment status",
       error: err.message 
     });
   }
@@ -469,7 +748,7 @@ exports.updateAppointmentStatus = async (req, res) => {
 // ==========================
 // FAQs management
 // ==========================
-exports.getAllFaqs = async (req, res) => {
+exports.getFaqs = async (req, res) => {
   try {
     const pool = await poolPromise;
     const result = await pool.request().query(`
@@ -485,12 +764,11 @@ exports.getAllFaqs = async (req, res) => {
   }
 };
 
-exports.createFaq = async (req, res) => {
+exports.addFaq = async (req, res) => {
   try {
-    const { question, answer, category } = req.body || {}; // fallback if body undefined
+    const { question, answer, category } = req.body || {};
     const userId = req.user.user_id;
 
-    // Validate input
     if (!question || !answer) {
       return res.status(400).json({ message: "Question and answer are required" });
     }
@@ -564,11 +842,24 @@ exports.deleteFaq = async (req, res) => {
 // ==========================
 // Announcements management
 // ==========================
+exports.getAnnouncements = async (req, res) => {
+  try {
+    const pool = await poolPromise;
+
+    const result = await pool.request()
+      .query("SELECT announcement_id, user_id, title, content, created_at FROM Announcement ORDER BY created_at DESC");
+
+    res.json(result.recordset);
+  } catch (err) {
+    console.error("Get Announcements error:", err);
+    res.status(500).json({ message: "Server error fetching announcements" });
+  }
+};
+
 exports.createAnnouncement = async (req, res) => {
   try {
     const { title, content } = req.body;
 
-    // Validate input
     if (!title || !content) {
       return res.status(400).json({ message: "Title and content are required" });
     }
@@ -576,7 +867,7 @@ exports.createAnnouncement = async (req, res) => {
     const pool = await poolPromise;
 
     await pool.request()
-      .input("userId", sql.Int, req.user.user_id) 
+      .input("userId", sql.Int, req.user.user_id)
       .input("title", sql.VarChar, title)
       .input("content", sql.VarChar, content)
       .query(`
@@ -646,38 +937,6 @@ exports.deleteAnnouncement = async (req, res) => {
   }
 };
 
-exports.getAnnouncements = async (req, res) => {
-  try {
-    const pool = await poolPromise;
-
-    const result = await pool.request()
-      .query("SELECT announcement_id, user_id, title, content, created_at FROM Announcement ORDER BY created_at DESC");
-
-    res.json(result.recordset);
-  } catch (err) {
-    console.error("Get Announcements error:", err);
-    res.status(500).json({ message: "Server error fetching announcements" });
-  }
-};
-
-// ==========================
-// System Settings
-// ==========================
-exports.getSystemSettings = async (req, res) => {
-  try {
-    const pool = await poolPromise;
-    const result = await pool.request().query(`
-      SELECT config_key, config_value, description 
-      FROM SystemConfiguration
-    `);
-
-    res.json({ settings: result.recordset });
-  } catch (err) {
-    console.error("Get settings error:", err);
-    res.status(500).json({ message: "Server error fetching settings" });
-  }
-};
-
 // ==========================
 // Analytics
 // ==========================
@@ -744,7 +1003,6 @@ exports.getAppointmentMetrics = async (req, res) => {
   try {
     const pool = await poolPromise;
     
-    // Cancelled/Missed appointments
     const cancelledResult = await pool.request().query(`
       SELECT 
         COUNT(*) as total_cancelled,
@@ -754,7 +1012,6 @@ exports.getAppointmentMetrics = async (req, res) => {
       WHERE status IN ('cancelled', 'no-show')
     `);
 
-    // Average duration
     const durationResult = await pool.request().query(`
       SELECT AVG(CAST(duration_minutes as FLOAT)) as avg_duration
       FROM Appointment 
@@ -861,16 +1118,19 @@ exports.getStaffSchedules = async (req, res) => {
     const result = await pool.request().query(`
       SELECT 
         ss.schedule_id,
-        ss.staff_id,
-        s.name as staff_name,
+        ss.user_id,
+        u.name as staff_name,
+        u.email,
+        u.role,
         ss.work_date,
         ss.start_time,
         ss.end_time,
         ss.notes
       FROM StaffSchedule ss
-      INNER JOIN Staff s ON ss.staff_id = s.staff_id
-      WHERE work_date >= CAST(GETDATE() AS DATE)
-      ORDER BY work_date, start_time
+      INNER JOIN UserAccount u ON ss.user_id = u.user_id
+      WHERE u.role IN ('admin', 'nurse', 'staff') 
+        AND ss.work_date >= CAST(GETDATE() AS DATE)
+      ORDER BY ss.work_date, ss.start_time
     `);
 
     res.json({ 
@@ -889,25 +1149,39 @@ exports.getStaffSchedules = async (req, res) => {
 
 exports.createStaffSchedule = async (req, res) => {
   try {
-    const { staff_id, work_date, start_time, end_time, notes } = req.body;
+    const { user_id, work_date, start_time, end_time, notes } = req.body;
 
-    if (!staff_id || !work_date || !start_time || !end_time) {
+    if (!user_id || !work_date || !start_time || !end_time) {
       return res.status(400).json({ 
         success: false,
-        message: "Staff ID, work date, start time, and end time are required" 
+        message: "User ID, work date, start time, and end time are required" 
       });
     }
 
+    // Verify the user is actually staff
     const pool = await poolPromise;
+    const userCheck = await pool.request()
+      .input('user_id', sql.Int, user_id)
+      .query('SELECT role FROM UserAccount WHERE user_id = @user_id AND role IN (\'admin\', \'nurse\', \'staff\')');
+
+    if (userCheck.recordset.length === 0) {
+      return res.status(400).json({ 
+        success: false,
+        message: "User is not a staff member" 
+      });
+    }
+
+    
+
     await pool.request()
-      .input('staff_id', sql.Int, staff_id)
+      .input('user_id', sql.Int, user_id)
       .input('work_date', sql.Date, work_date)
-      .input('start_time', sql.Time, start_time)
-      .input('end_time', sql.Time, end_time)
+      .input('start_time', sql.VarChar, start_time)  
+      .input('end_time', sql.VarChar, end_time)      
       .input('notes', sql.VarChar, notes)
       .query(`
-        INSERT INTO StaffSchedule (staff_id, work_date, start_time, end_time, notes)
-        VALUES (@staff_id, @work_date, @start_time, @end_time, @notes)
+        INSERT INTO StaffSchedule (user_id, work_date, start_time, end_time, notes)
+        VALUES (@user_id, @work_date, @start_time, @end_time, @notes)
       `);
 
     res.status(201).json({ 
@@ -927,19 +1201,36 @@ exports.createStaffSchedule = async (req, res) => {
 exports.updateStaffSchedule = async (req, res) => {
   try {
     const { id } = req.params;
-    const { staff_id, work_date, start_time, end_time, notes } = req.body;
+    const { user_id, work_date, start_time, end_time, notes } = req.body;
 
     const pool = await poolPromise;
+    
+    // Verify the user is staff if user_id is being updated
+    if (user_id) {
+      const userCheck = await pool.request()
+        .input('user_id', sql.Int, user_id)
+        .query('SELECT role FROM UserAccount WHERE user_id = @user_id AND role IN (\'admin\', \'nurse\', \'staff\')');
+
+      if (userCheck.recordset.length === 0) {
+        return res.status(400).json({ 
+          success: false,
+          message: "User is not a staff member" 
+        });
+      }
+    }
+
+
+
     const result = await pool.request()
       .input('schedule_id', sql.Int, id)
-      .input('staff_id', sql.Int, staff_id)
+      .input('user_id', sql.Int, user_id)
       .input('work_date', sql.Date, work_date)
-      .input('start_time', sql.Time, start_time)
-      .input('end_time', sql.Time, end_time)
+      .input('start_time', sql.VarChar, start_time)  
+      .input('end_time', sql.VarChar, end_time)      
       .input('notes', sql.VarChar, notes)
       .query(`
         UPDATE StaffSchedule 
-        SET staff_id = @staff_id, work_date = @work_date, 
+        SET user_id = @user_id, work_date = @work_date, 
             start_time = @start_time, end_time = @end_time, notes = @notes
         WHERE schedule_id = @schedule_id
       `);
@@ -994,6 +1285,203 @@ exports.deleteStaffSchedule = async (req, res) => {
     });
   }
 };
+
+
+
+//========================
+// Notification management
+//=========================
+const getAllNotifications = async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    const result = await pool.request().query(`
+      SELECT 
+        n.notification_id,
+        n.appointment_id,
+        n.content,
+        n.type,
+        n.status,
+        n.sent_at,
+        u.name AS user_name,
+        u.email AS user_email,
+        u.phone AS user_phone,
+        a.date_and_time AS appointment_date
+      FROM Notification n
+      INNER JOIN Appointment a ON n.appointment_id = a.appointment_id
+      INNER JOIN Booking b ON a.booking_id = b.booking_id
+      INNER JOIN UserAccount u ON b.user_id = u.user_id
+      ORDER BY n.sent_at DESC
+    `);
+
+    res.status(200).json(result.recordset);
+  } catch (error) {
+    console.error("Error fetching notifications:", error.message);
+    res.status(500).json({ error: "Failed to fetch notifications" });
+  }
+};
+
+
+const getNotificationById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const pool = await poolPromise;
+    const result = await pool.request()
+      .input("id", sql.Int, id)
+      .query(`
+        SELECT 
+          n.notification_id,
+          n.appointment_id,
+          n.content,
+          n.type,
+          n.status,
+          n.sent_at,
+          u.name AS user_name,
+          u.email AS user_email,
+          u.phone AS user_phone,
+          a.date_and_time AS appointment_date
+        FROM Notification n
+        INNER JOIN Appointment a ON n.appointment_id = a.appointment_id
+        INNER JOIN Booking b ON a.booking_id = b.booking_id
+        INNER JOIN UserAccount u ON b.user_id = u.user_id
+        WHERE n.notification_id = @id
+      `);
+
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ message: "Notification not found" });
+    }
+
+    res.status(200).json(result.recordset[0]);
+  } catch (error) {
+    console.error("Error fetching notification by ID:", error.message);
+    res.status(500).json({ error: "Failed to fetch notification" });
+  }
+};
+
+
+const updateNotificationStatus = async (req, res) => {
+  try {
+    const { notificationId } = req.params;
+    const { status } = req.body;
+
+    const pool = await poolPromise;
+    await pool.request()
+      .input("status", sql.VarChar, status)
+      .input("notificationId", sql.Int, notificationId)
+      .query(`
+        UPDATE Notification
+        SET status = @status
+        WHERE notification_id = @notificationId
+      `);
+
+    res.status(200).json({ message: "Notification status updated successfully" });
+  } catch (error) {
+    console.error("Error updating notification status:", error.message);
+    res.status(500).json({ error: "Failed to update notification status" });
+  }
+};
+
+const sendManualNotification = async (req, res) => {
+  try {
+    const { appointment_id, content, type } = req.body;
+
+    const pool = await poolPromise;
+    await pool.request()
+      .input("appointment_id", sql.Int, appointment_id)
+      .input("content", sql.VarChar, content)
+      .input("type", sql.VarChar, type)
+      .input("status", sql.VarChar, "sent")
+      .input("sent_at", sql.DateTime, new Date())
+      .query(`
+        INSERT INTO Notification (appointment_id, content, type, status, sent_at)
+        VALUES (@appointment_id, @content, @type, @status, @sent_at)
+      `);
+
+    res.status(201).json({ message: "Notification sent successfully" });
+  } catch (error) {
+    console.error("Error sending notification:", error.message);
+    res.status(500).json({ error: "Failed to send notification" });
+  }
+};
+
+
+const deleteNotification = async (req, res) => {
+  try {
+    const { notificationId } = req.params;
+    const pool = await poolPromise;
+    await pool.request()
+      .input("notificationId", sql.Int, notificationId)
+      .query(`
+        DELETE FROM Notification WHERE notification_id = @notificationId
+      `);
+
+    res.status(200).json({ message: "Notification deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting notification:", error.message);
+    res.status(500).json({ error: "Failed to delete notification" });
+  }
+};
+
+
+const getNotificationStats = async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    const statusResult = await pool.request().query(`
+      SELECT status, COUNT(*) AS count
+      FROM Notification
+      GROUP BY status
+    `);
+
+    const typeResult = await pool.request().query(`
+      SELECT type, COUNT(*) AS count
+      FROM Notification
+      GROUP BY type
+    `);
+
+    const dailyResult = await pool.request().query(`
+      SELECT CAST(sent_at AS DATE) AS date, COUNT(*) AS count
+      FROM Notification
+      GROUP BY CAST(sent_at AS DATE)
+      ORDER BY date DESC
+    `);
+
+    res.status(200).json({
+      byStatus: statusResult.recordset,
+      byType: typeResult.recordset,
+      daily: dailyResult.recordset,
+    });
+  } catch (error) {
+    console.error("Error fetching notification stats:", error.message);
+    res.status(500).json({ error: "Failed to fetch notification stats" });
+  }
+};
+
+
+const bulkUpdateNotificationStatus = async (req, res) => {
+  try {
+    const { ids, status } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: "Invalid notification IDs" });
+    }
+
+    const pool = await poolPromise;
+    await pool.request()
+      .input("status", sql.VarChar, status)
+      .query(`
+        UPDATE Notification
+        SET status = @status
+        WHERE notification_id IN (${ids.join(",")})
+      `);
+
+    res.status(200).json({ message: "Bulk notification status updated" });
+  } catch (error) {
+    console.error("Error bulk updating notifications:", error.message);
+    res.status(500).json({ error: "Failed to bulk update notifications" });
+  }
+};
+
+
+
 
 // ==========================
 // Feedback Management
@@ -1104,13 +1592,13 @@ exports.generateReport = async (req, res) => {
             u.email,
             u.role,
             u.account_status,
-            u.create_at,
+            u.created_at,
             COUNT(a.appointment_id) as total_appointments
           FROM UserAccount u
           LEFT JOIN Booking b ON u.user_id = b.user_id
           LEFT JOIN Appointment a ON b.booking_id = a.booking_id
-          GROUP BY u.user_id, u.name, u.email, u.role, u.account_status, u.create_at
-          ORDER BY u.create_at DESC
+          GROUP BY u.user_id, u.name, u.email, u.role, u.account_status, u.created_at
+          ORDER BY u.created_at DESC
         `);
         reportData = usersResult.recordset;
         break;
@@ -1145,5 +1633,43 @@ exports.generateReport = async (req, res) => {
     });
   } catch (err) {
     console.error("Generate report error:", err);
+    res.status(500).json({ 
+      success: false,
+      message: "Server error generating report",
+      error: err.message 
+    });
   }
-}
+};
+
+// ==========================
+// Send Notification (used by /send route)
+// ==========================
+exports.sendNotification = async (req, res) => {
+  try {
+    const { phoneNumber, message } = req.body;
+
+    if (!phoneNumber || !message) {
+      return res.status(400).json({ error: "Phone number and message are required" });
+    }
+
+    // Call the util function
+    await sendSMSNotification(phoneNumber, message);
+
+    res.status(200).json({ success: true, message: "Notification sent successfully" });
+  } catch (error) {
+    console.error("Send Notification Error:", error.message);
+    res.status(500).json({ error: "Failed to send notification" });
+  }
+};
+console.log("Admin controller exports:", Object.keys(module.exports));
+
+
+module.exports = {
+  getAllNotifications,
+  getNotificationById,
+  updateNotificationStatus,
+  sendManualNotification,
+  deleteNotification,
+  getNotificationStats,
+  bulkUpdateNotificationStatus,
+};
