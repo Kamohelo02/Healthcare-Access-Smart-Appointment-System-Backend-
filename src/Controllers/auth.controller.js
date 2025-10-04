@@ -40,7 +40,7 @@ const register = async (req, res) => {
         .input("phone", sql.VarChar, phone || "")
         .input("role", sql.VarChar, role)
         .query(`
-          INSERT INTO UserAccount (email, name, password_hash, phone, role, create_at)
+          INSERT INTO UserAccount (email, name, password_hash, phone, role, created_at)
           OUTPUT INSERTED.user_id
           VALUES (@email, @name, @password_hash, @phone, @role, GETDATE())
         `);
@@ -62,23 +62,39 @@ const register = async (req, res) => {
           `);
       }
 
-      // 3. If staff or admin, insert into Staff table
-      if (role === "staff" || role === "admin") {
-        if (role === "staff" && !position) {
-          throw new Error("Position is required for staff registration");
-        }
-
-        await transaction.request()
-          .input("userId", sql.Int, userId)
-          .input("position", sql.VarChar, position || "Administrator")
-          .input("isAdmin", sql.Bit, role === "admin" ? 1 : 0)
-          .query(`
-            INSERT INTO Staff (user_id, position, is_admin)
-            VALUES (@userId, @position, @isAdmin)
-          `);
+      // 3. If staff, nurse, or admin, insert into Staff table
+  if (role === "staff" || role === "nurse" || role === "admin") {
+    // Set default position based on role
+    let staffPosition = position;
+    
+    if (!staffPosition) {
+      switch(role) {
+        case "admin":
+          staffPosition = "Administrator";
+          break;
+        case "nurse":
+          staffPosition = "Nurse";
+          break;
+        case "staff":
+          staffPosition = "Staff Member";
+          break;
+        default:
+          staffPosition = "Staff";
       }
+    }
 
+    await transaction.request()
+      .input("userId", sql.Int, userId)
+      .input("position", sql.VarChar, staffPosition)
+      .input("isAdmin", sql.Bit, role === "admin" ? 1 : 0)
+      .query(`
+        INSERT INTO Staff (user_id, position, is_admin)
+        VALUES (@userId, @position, @isAdmin)
+      `);
+  }
       await transaction.commit();
+
+      
 
       // ✅ Generate JWT
       const tokenPayload = { user_id: userId, role, email, name };
