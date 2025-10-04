@@ -524,7 +524,7 @@ exports.searchAppointments = async (req, res) => {
       FROM Appointment a
       INNER JOIN Booking b ON a.booking_id = b.booking_id
       INNER JOIN UserAccount u ON b.user_id = u.user_id
-      LEFT JOIN Staff st ON a.assigned_nurse_id = st.staff_id
+      LEFT JOIN Staff st ON a.assigned_nurse_id = st.user_id
       WHERE 
     `;
 
@@ -1291,7 +1291,7 @@ exports.deleteStaffSchedule = async (req, res) => {
 //========================
 // Notification management
 //=========================
-const getAllNotifications = async (req, res) => {
+exports.getAllNotifications = async (req, res) => {
   try {
     const pool = await poolPromise;
     const result = await pool.request().query(`
@@ -1321,7 +1321,7 @@ const getAllNotifications = async (req, res) => {
 };
 
 
-const getNotificationById = async (req, res) => {
+ exports.getNotificationById = async (req, res) => {
   try {
     const { id } = req.params;
     const pool = await poolPromise;
@@ -1358,7 +1358,7 @@ const getNotificationById = async (req, res) => {
 };
 
 
-const updateNotificationStatus = async (req, res) => {
+ exports.updateNotificationStatus = async (req, res) => {
   try {
     const { notificationId } = req.params;
     const { status } = req.body;
@@ -1380,7 +1380,7 @@ const updateNotificationStatus = async (req, res) => {
   }
 };
 
-const sendManualNotification = async (req, res) => {
+exports.sendManualNotification = async (req, res) => {
   try {
     const { appointment_id, content, type } = req.body;
 
@@ -1404,7 +1404,7 @@ const sendManualNotification = async (req, res) => {
 };
 
 
-const deleteNotification = async (req, res) => {
+exports.deleteNotification = async (req, res) => {
   try {
     const { notificationId } = req.params;
     const pool = await poolPromise;
@@ -1422,7 +1422,7 @@ const deleteNotification = async (req, res) => {
 };
 
 
-const getNotificationStats = async (req, res) => {
+exports.getNotificationStats = async (req, res) => {
   try {
     const pool = await poolPromise;
     const statusResult = await pool.request().query(`
@@ -1456,7 +1456,7 @@ const getNotificationStats = async (req, res) => {
 };
 
 
-const bulkUpdateNotificationStatus = async (req, res) => {
+exports.bulkUpdateNotificationStatus = async (req, res) => {
   try {
     const { ids, status } = req.body;
 
@@ -1569,15 +1569,27 @@ exports.generateReport = async (req, res) => {
             SELECT 
               a.appointment_id,
               a.date_and_time,
-              a.status,
+              a.status AS appointment_status,
               a.duration_minutes,
-              u.name as user_name,
-              u.email,
-              s.name as nurse_name
+              u.user_id AS patient_id,
+              u.name AS patient_name,
+              u.email AS patient_email,
+              b.booking_id,
+              b.status AS booking_status,
+              b.requested_time_date,
+              staff.user_id AS staff_id,
+              staff.name AS staff_name,
+              staff.email AS staff_email,
+              st.position AS staff_position
             FROM Appointment a
-            INNER JOIN Booking b ON a.booking_id = b.booking_id
-            INNER JOIN UserAccount u ON b.user_id = u.user_id
-            LEFT JOIN Staff s ON a.assigned_nurse_id = s.staff_id
+            INNER JOIN Booking b 
+              ON a.booking_id = b.booking_id
+            INNER JOIN UserAccount u 
+              ON b.user_id = u.user_id
+            LEFT JOIN Staff st 
+              ON st.user_id = u.user_id -- if user is staff
+            LEFT JOIN UserAccount staff 
+              ON staff.user_id = st.user_id
             WHERE a.date_and_time BETWEEN @startDate AND DATEADD(DAY, 1, @endDate)
             ORDER BY a.date_and_time
           `);
@@ -1641,6 +1653,7 @@ exports.generateReport = async (req, res) => {
   }
 };
 
+
 // ==========================
 // Send Notification (used by /send route)
 // ==========================
@@ -1661,15 +1674,4 @@ exports.sendNotification = async (req, res) => {
     res.status(500).json({ error: "Failed to send notification" });
   }
 };
-console.log("Admin controller exports:", Object.keys(module.exports));
 
-
-module.exports = {
-  getAllNotifications,
-  getNotificationById,
-  updateNotificationStatus,
-  sendManualNotification,
-  deleteNotification,
-  getNotificationStats,
-  bulkUpdateNotificationStatus,
-};
