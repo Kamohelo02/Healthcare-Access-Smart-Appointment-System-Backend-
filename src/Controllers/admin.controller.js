@@ -1,5 +1,6 @@
 const { sql, poolPromise } = require("../config/db");
-const sendSMSNotification = require("../Utils/sendSMSNotification") 
+const sendSMSNotification = require("../Utils/sendSMSNotification");  //not workingg with real numbers yet
+const sendEmailNotification = require("../Utils/sendEmailNotification");
 const bcrypt = require('bcryptjs');
 const twilio = require('twilio');
 
@@ -417,25 +418,22 @@ exports.getAllAppointments = async (req, res) => {
     const offset = (page - 1) * limit;
 
     const pool = await poolPromise;
-    let query = `
-      SELECT 
-        a.appointment_id, 
-        a.date_and_time, 
-        a.status, 
-        a.notes,
-        a.booking_id,
-        a.duration_minutes,
-        b.user_id,
-        u.name as user_name, 
-        u.email,
-        u.phone,
-        st.name as nurse_name,
-        st.user_id as nurse_id
-      FROM Appointment a
-      INNER JOIN Booking b ON a.booking_id = b.booking_id
-      INNER JOIN UserAccount u ON b.user_id = u.user_id
-      LEFT JOIN Staff st ON a.assigned_nurse_id = st.user_id
-    `;
+    let query =  `
+  SELECT 
+    a.appointment_id, 
+    a.date_and_time, 
+    a.status, 
+    a.notes,
+    a.booking_id,
+    a.duration_minutes,
+    b.user_id,
+    u.email,
+    u.phone,
+    a.nurse_name
+  FROM Appointment a
+  INNER JOIN Booking b ON a.booking_id = b.booking_id
+  INNER JOIN UserAccount u ON b.user_id = u.user_id
+`;
 
     const whereConditions = [];
     const inputs = {};
@@ -509,23 +507,21 @@ exports.searchAppointments = async (req, res) => {
     }
 
     const pool = await poolPromise;
-    let searchQuery = `
-      SELECT 
-        a.appointment_id, 
-        a.date_and_time, 
-        a.status, 
-        a.notes,
-        a.booking_id,
-        b.user_id,
-        u.name as user_name, 
-        u.email,
-        u.phone,
-        st.name as nurse_name
-      FROM Appointment a
-      INNER JOIN Booking b ON a.booking_id = b.booking_id
-      INNER JOIN UserAccount u ON b.user_id = u.user_id
-      LEFT JOIN Staff st ON a.assigned_nurse_id = st.user_id
-      WHERE 
+    let searchQuery =  `
+  SELECT 
+    a.appointment_id, 
+    a.date_and_time, 
+    a.status, 
+    a.notes,
+    a.booking_id,
+    a.duration_minutes,
+    b.user_id,
+    u.email,
+    u.phone,
+    a.nurse_name
+  FROM Appointment a
+  INNER JOIN Booking b ON a.booking_id = b.booking_id
+  INNER JOIN UserAccount u ON b.user_id = u.user_id
     `;
 
     const searchConditions = [];
@@ -610,137 +606,258 @@ exports.deleteAppointment = async (req, res) => {
 
 exports.updateAppointmentStatus = async (req, res) => {
   let transaction;
-  
+
   try {
     const { id } = req.params;
-    const { status, notes } = req.body;
+    const { status, notes, new_date_time } = req.body;
+
+    console.log("🔍 UPDATE REQUEST:", { id, status, notes, new_date_time });
 
     if (!status) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Status is required" 
+        message: "Status is required"
+      });
+    }
+
+    const validStatuses = ['confirmed', 'cancelled', 'completed', 'rescheduled', 'pending'];
+    if (!validStatuses.includes(status.toLowerCase())) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid status. Must be: confirmed, cancelled, completed, rescheduled, or pending"
+      });
+    }
+
+    if (status.toLowerCase() === 'rescheduled' && !new_date_time) {
+      return res.status(400).json({
+        success: false,
+        message: "new_date_time is required for reschedule action"
       });
     }
 
     const pool = await poolPromise;
-    transaction = new sql.Transaction(pool);
-    await transaction.begin();
-
-    // 1. Get appointment details
-    const appointmentResult = await transaction.request()
+    
+    // FIRST: Let's debug the actual data without transaction
+    console.log("🔍 DEBUG: Checking appointment data...");
+    const debugResult = await pool.request()
       .input("appointmentId", sql.Int, id)
       .query(`
         SELECT 
-          a.appointment_id, 
-          a.date_and_time, 
-          a.status as old_status,
-          u.user_id,
-          u.name as user_name,
+          a.appointment_id,
+          a.booking_id,
+          a.date_and_time,
+          a.status,
+          b.booking_id as booking_id_from_join,
+          b.user_id,
+          b.status as booking_status,
+          u.email,
           u.phone,
-          u.email
+          u.name AS user_name
         FROM Appointment a
-        INNER JOIN Booking b ON a.booking_id = b.booking_id
-        INNER JOIN UserAccount u ON b.user_id = u.user_id
+        LEFT JOIN Booking b ON a.booking_id = b.booking_id
+        LEFT JOIN UserAccount u ON b.user_id = u.user_id
         WHERE a.appointment_id = @appointmentId
       `);
 
-    if (appointmentResult.recordset.length === 0) {
-      await transaction.rollback();
-      return res.status(404).json({ 
+    console.log("🔍 DEBUG RESULT:", {
+      recordCount: debugResult.recordset.length,
+      data: debugResult.recordset[0]
+    });
+
+    if (debugResult.recordset.length === 0) {
+      return res.status(404).json({
         success: false,
-        message: "Appointment not found" 
+        message: "Appointment not found"
       });
     }
 
-    const appointment = appointmentResult.recordset[0];
-    const oldStatus = appointment.old_status;
+    const debugData = debugResult.recordset[0];
+    const bookingId = debugData.booking_id;
+    const bookingIdFromJoin = debugData.booking_id_from_join;
 
-    // 2. Update Appointment status
-    await transaction.request()
-      .input("appointmentId", sql.Int, id)
-      .input("status", sql.VarChar, status)
-      .input("notes", sql.NVarChar, notes || null)
-      .query(`
-        UPDATE Appointment
-        SET status = @status, notes = COALESCE(@notes, notes)
-        WHERE appointment_id = @appointmentId
+    console.log("🔍 BOOKING ID ANALYSIS:", {
+      bookingId: bookingId,
+      bookingIdType: typeof bookingId,
+      bookingIdFromJoin: bookingIdFromJoin,
+      bookingIdFromJoinType: typeof bookingIdFromJoin,
+      isBookingIdValid: bookingId && !isNaN(bookingId),
+      isBookingIdFromJoinValid: bookingIdFromJoin && !isNaN(bookingIdFromJoin)
+    });
+
+    // If booking_id is invalid, let's check what appointments actually exist
+    if (!bookingId || isNaN(bookingId)) {
+      console.log("🔍 CHECKING ALL APPOINTMENTS...");
+      const allAppointments = await pool.request().query(`
+        SELECT TOP 10 appointment_id, booking_id, status 
+        FROM Appointment 
+        ORDER BY appointment_id DESC
       `);
-
-    // 3. ALWAYS UPDATE the notification (assumes it always exists)
-    const formattedDate = new Date(appointment.date_and_time).toLocaleString();
-    let messageContent = '';
-    
-    switch (status.toLowerCase()) {
-      case 'confirmed':
-        messageContent = `✅ CONFIRMED: Your appointment on ${formattedDate} has been confirmed. See you then!`;
-        break;
-      case 'cancelled':
-        messageContent = `❌ CANCELLED: Your appointment on ${formattedDate} has been cancelled. Contact us to reschedule.`;
-        break;
-      case 'completed':
-        messageContent = `🎉 COMPLETED: Your appointment on ${formattedDate} is complete. Thank you for visiting!`;
-        break;
-      case 'rescheduled':
-        messageContent = `📅 RESCHEDULED: Your appointment has been rescheduled to ${formattedDate}.`;
-        break;
-      default:
-        messageContent = `Your appointment status has been updated to: ${status}`;
+      console.log("🔍 RECENT APPOINTMENTS:", allAppointments.recordset);
     }
 
-    // Update the existing notification
-    const notificationResult = await transaction.request()
-      .input("appointmentId", sql.Int, id)
-      .input("content", sql.NVarChar, messageContent)
-      .input("status", sql.VarChar, "unread")
-      .input("type", sql.VarChar, "appointment_status")
-      .query(`
-        UPDATE Notification 
-        SET content = @content,
-            status = @status,
-            type = @type,
-            sent_at = GETDATE()
-        WHERE appointment_id = @appointmentId
-      `);
+    // Now start the transaction with the validated data
+    transaction = new sql.Transaction(pool);
+    await transaction.begin();
 
-    // If no notification was updated, create one
-    if (notificationResult.rowsAffected[0] === 0) {
+    const appointment = debugData;
+    const oldStatus = appointment.status;
+    const userId = appointment.user_id;
+
+    // Use whichever booking_id is valid
+    const validBookingId = bookingId && !isNaN(bookingId) ? bookingId : 
+                          bookingIdFromJoin && !isNaN(bookingIdFromJoin) ? bookingIdFromJoin : null;
+
+    console.log("🔍 USING BOOKING ID:", validBookingId);
+
+    if (!validBookingId) {
+      await transaction.rollback();
+      return res.status(500).json({
+        success: false,
+        message: "No valid booking ID found for this appointment"
+      });
+    }
+
+    // 2. Update Appointment
+    if (status.toLowerCase() === 'rescheduled') {
       await transaction.request()
-        .input("userId", sql.Int, appointment.user_id)
         .input("appointmentId", sql.Int, id)
-        .input("content", sql.NVarChar, messageContent)
-        .input("type", sql.VarChar, "appointment_status")
+        .input("status", sql.VarChar, status)
+        .input("date_and_time", sql.DateTime, new_date_time)
+        .input("notes", sql.NVarChar, notes || null)
         .query(`
-          INSERT INTO Notification (user_id, appointment_id, content, type, status, sent_at)
-          VALUES (@userId, @appointmentId, @content, @type, 'unread', GETDATE())
+          UPDATE Appointment
+          SET status = @status, 
+              date_and_time = @date_and_time, 
+              notes = COALESCE(@notes, notes)
+          WHERE appointment_id = @appointmentId
+        `);
+    } else {
+      await transaction.request()
+        .input("appointmentId", sql.Int, id)
+        .input("status", sql.VarChar, status)
+        .input("notes", sql.NVarChar, notes || null)
+        .query(`
+          UPDATE Appointment
+          SET status = @status, 
+              notes = COALESCE(@notes, notes)
+          WHERE appointment_id = @appointmentId
         `);
     }
 
-    await transaction.commit();
+    // 2b. Update Booking table
+    console.log("🔍 UPDATING BOOKING TABLE...");
+    const bookingUpdateResult = await transaction.request()
+      .input("bookingId", sql.Int, validBookingId)
+      .input("status", sql.VarChar, status)
+      .query(`
+        UPDATE Booking
+        SET status = @status
+        WHERE booking_id = @bookingId
+      `);
 
-    // 4. Send SMS
-    const allowedStatuses = ["confirmed", "cancelled", "completed", "rescheduled"];
-    if (allowedStatuses.includes(status.toLowerCase()) && appointment.phone && oldStatus !== status) {
-      await sendSMSNotification(appointment.phone, messageContent, appointment.user_id);
+    console.log("🔍 BOOKING UPDATE SUCCESS:", bookingUpdateResult.rowsAffected);
+
+    // 3. Create notification message
+    const formattedDate = new Date(
+      status.toLowerCase() === 'rescheduled' ? new_date_time : appointment.date_and_time
+    ).toLocaleString();
+    
+    let messageContent = '';
+    let emailSubject = '';
+    let emailBody = '';
+
+    switch (status.toLowerCase()) {
+      case 'confirmed':
+        messageContent = `✅ CONFIRMED: Your appointment on ${formattedDate} has been confirmed.`;
+        emailSubject = 'Appointment Confirmed';
+        emailBody = `Hello ${appointment.user_name},<br><br>Your appointment has been confirmed for ${formattedDate}.<br><br>Thank you,<br>Healthcare Team`;
+        break;
+      case 'cancelled':
+        messageContent = `❌ CANCELLED: Your appointment on ${formattedDate} has been cancelled.`;
+        emailSubject = 'Appointment Cancelled';
+        emailBody = `Hello ${appointment.user_name},<br><br>Your appointment scheduled for ${formattedDate} has been cancelled.${notes ? `<br><br>Notes: ${notes}` : ''}`;
+        break;
+      case 'completed':
+        messageContent = `🎉 COMPLETED: Your appointment on ${formattedDate} is complete.`;
+        emailSubject = 'Appointment Completed';
+        emailBody = `Hello ${appointment.user_name},<br><br>Your appointment on ${formattedDate} has been completed. Thank you for visiting!`;
+        break;
+      case 'rescheduled':
+        messageContent = `📅 RESCHEDULED: Your appointment has been rescheduled to ${formattedDate}.`;
+        emailSubject = 'Appointment Rescheduled';
+        emailBody = `Hello ${appointment.user_name},<br><br>Your appointment has been rescheduled to ${formattedDate}.${notes ? `<br><br>Notes: ${notes}` : ''}`;
+        break;
+      default:
+        messageContent = `Your appointment status has been updated to: ${status}`;
+        emailSubject = `Appointment Status Updated`;
+        emailBody = `Hello ${appointment.user_name},<br><br>Your appointment status has been updated to: ${status}.`;
     }
 
-    res.json({ 
+    // 4. Insert Notification
+    await transaction.request()
+      .input("userId", sql.Int, userId)
+      .input("appointmentId", sql.Int, id)
+      .input("content", sql.NVarChar, messageContent)
+      .input("type", sql.VarChar, "appointment_status")
+      .input("status", sql.VarChar, "unread")
+      .input("sent_at", sql.DateTime, new Date())
+      .query(`
+        INSERT INTO Notification (user_id, appointment_id, content, type, status, sent_at)
+        VALUES (@userId, @appointmentId, @content, @type, @status, @sent_at)
+      `);
+
+    await transaction.commit();
+
+    console.log("✅ TRANSACTION COMMITTED SUCCESSFULLY");
+
+    // 5. Send notifications
+    const notificationResults = {};
+    const allowedStatuses = ["confirmed", "cancelled", "completed", "rescheduled"];
+
+    if (allowedStatuses.includes(status.toLowerCase()) && appointment.phone && oldStatus !== status) {
+      try {
+        await sendSMSNotification(appointment.phone, messageContent, userId);
+        notificationResults.sms = { success: true };
+      } catch (smsError) {
+        console.error("❌ SMS sending failed:", smsError.message);
+        notificationResults.sms = { success: false, error: smsError.message };
+      }
+    }
+
+    if (allowedStatuses.includes(status.toLowerCase()) && appointment.email && oldStatus !== status) {
+      try {
+        await sendEmailNotification.sendEmail(
+          appointment.email,
+          emailSubject,
+          emailBody.replace(/<br>/g, '\n'),
+          emailBody
+        );
+        notificationResults.email = { success: true };
+      } catch (emailError) {
+        console.error("❌ Email sending failed:", emailError.message);
+        notificationResults.email = { success: false, error: emailError.message };
+      }
+    }
+
+    res.json({
       success: true,
-      message: "Appointment status and notification updated successfully",
+      message: "Appointment and booking status updated successfully",
       data: {
         appointmentId: id,
+        bookingId: validBookingId,
         newStatus: status,
-        notificationUpdated: true,
-        smsSent: !!(appointment.phone && oldStatus !== status)
+        oldStatus,
+        notifications: notificationResults
       }
     });
 
   } catch (err) {
     if (transaction) await transaction.rollback();
-    console.error("Update appointment status error:", err);
-    res.status(500).json({ 
+    console.error("❌ Update appointment status error:", err);
+    res.status(500).json({
       success: false,
       message: "Server error updating appointment status",
-      error: err.message 
+      error: err.message
     });
   }
 };
@@ -844,15 +961,123 @@ exports.deleteFaq = async (req, res) => {
 // ==========================
 exports.getAnnouncements = async (req, res) => {
   try {
+    const { 
+      page = 1, 
+      limit = 10, 
+      search, 
+      sortBy = 'created_at', 
+      sortOrder = 'DESC',
+      startDate,
+      endDate,
+      userId
+    } = req.query;
+
+    const offset = (page - 1) * limit;
     const pool = await poolPromise;
 
-    const result = await pool.request()
-      .query("SELECT announcement_id, user_id, title, content, created_at FROM Announcement ORDER BY created_at DESC");
+    let query = `
+      SELECT 
+        a.announcement_id, 
+        a.user_id, 
+        a.title, 
+        a.content, 
+        a.created_at,
+        u.name as author_name,
+        u.email as author_email
+      FROM Announcement a
+      LEFT JOIN UserAccount u ON a.user_id = u.user_id
+    `;
 
-    res.json(result.recordset);
+    const whereConditions = [];
+    const inputs = {};
+
+    // Search filter (searches in title and content)
+    if (search) {
+      whereConditions.push(`(a.title LIKE @search OR a.content LIKE @search)`);
+      inputs.search = `%${search}%`;
+    }
+
+    // Date range filter
+    if (startDate) {
+      whereConditions.push(`CAST(a.created_at AS DATE) >= @startDate`);
+      inputs.startDate = startDate;
+    }
+
+    if (endDate) {
+      whereConditions.push(`CAST(a.created_at AS DATE) <= @endDate`);
+      inputs.endDate = endDate;
+    }
+
+    // User filter
+    if (userId) {
+      whereConditions.push(`a.user_id = @userId`);
+      inputs.userId = parseInt(userId);
+    }
+
+    // Add WHERE clause if we have conditions
+    if (whereConditions.length > 0) {
+      query += ` WHERE ${whereConditions.join(' AND ')}`;
+    }
+
+    // Validate and apply sorting
+    const validSortColumns = ['created_at', 'title', 'author_name'];
+    const validSortOrders = ['ASC', 'DESC'];
+    
+    const safeSortBy = validSortColumns.includes(sortBy) ? sortBy : 'created_at';
+    const safeSortOrder = validSortOrders.includes(sortOrder.toUpperCase()) ? sortOrder.toUpperCase() : 'DESC';
+
+    // Handle special case for author_name sorting
+    const orderByColumn = safeSortBy === 'author_name' ? 'u.name' : `a.${safeSortBy}`;
+
+    query += ` ORDER BY ${orderByColumn} ${safeSortOrder} OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY`;
+
+    // Execute main query
+    const request = pool.request();
+    Object.keys(inputs).forEach(key => {
+      request.input(key, sql.VarChar, inputs[key]);
+    });
+
+    const result = await request.query(query);
+
+    // Get total count for pagination
+    let countQuery = `SELECT COUNT(*) as total FROM Announcement a LEFT JOIN UserAccount u ON a.user_id = u.user_id`;
+    if (whereConditions.length > 0) {
+      countQuery += ` WHERE ${whereConditions.join(' AND ')}`;
+    }
+
+    const countRequest = pool.request();
+    Object.keys(inputs).forEach(key => {
+      countRequest.input(key, sql.VarChar, inputs[key]);
+    });
+
+    const countResult = await countRequest.query(countQuery);
+
+    res.json({
+      success: true,
+      announcements: result.recordset,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: countResult.recordset[0].total,
+        pages: Math.ceil(countResult.recordset[0].total / limit)
+      },
+      filters: {
+        search: search || '',
+        sortBy: safeSortBy,
+        sortOrder: safeSortOrder,
+        startDate: startDate || '',
+        endDate: endDate || '',
+        userId: userId || ''
+      }
+    });
+
   } catch (err) {
     console.error("Get Announcements error:", err);
-    res.status(500).json({ message: "Server error fetching announcements" });
+    res.status(500).json({ 
+      success: false,
+      message: "Server error fetching announcements",
+      error: err.message 
+    });
   }
 };
 
@@ -861,26 +1086,137 @@ exports.createAnnouncement = async (req, res) => {
     const { title, content } = req.body;
 
     if (!title || !content) {
-      return res.status(400).json({ message: "Title and content are required" });
+      return res.status(400).json({ 
+        success: false,
+        message: "Title and content are required" 
+      });
+    }
+
+    // Validate title length
+    if (title.length > 200) {
+      return res.status(400).json({
+        success: false,
+        message: "Title must be less than 200 characters"
+      });
     }
 
     const pool = await poolPromise;
 
-    await pool.request()
+    const result = await pool.request()
       .input("userId", sql.Int, req.user.user_id)
       .input("title", sql.VarChar, title)
       .input("content", sql.VarChar, content)
       .query(`
         INSERT INTO Announcement (user_id, title, content, created_at)
+        OUTPUT INSERTED.announcement_id, INSERTED.created_at
         VALUES (@userId, @title, @content, GETDATE())
       `);
 
-    res.status(201).json({ message: "Announcement created successfully" });
+    // Get the complete announcement with author info
+    const newAnnouncement = await pool.request()
+      .input("announcementId", sql.Int, result.recordset[0].announcement_id)
+      .query(`
+        SELECT 
+          a.announcement_id, 
+          a.user_id, 
+          a.title, 
+          a.content, 
+          a.created_at,
+          u.name as author_name,
+          u.email as author_email
+        FROM Announcement a
+        LEFT JOIN UserAccount u ON a.user_id = u.user_id
+        WHERE a.announcement_id = @announcementId
+      `);
+
+    res.status(201).json({ 
+      success: true,
+      message: "Announcement created successfully",
+      announcement: newAnnouncement.recordset[0]
+    });
+
   } catch (err) {
     console.error("Create Announcement error:", err);
+    
+    if (err.number === 2627 || err.message.includes('duplicate')) {
+      return res.status(400).json({
+        success: false,
+        message: "An announcement with this title already exists"
+      });
+    }
+
     res.status(500).json({
+      success: false,
       message: "Error creating announcement",
       error: err.message,
+    });
+  }
+};
+
+exports.searchAnnouncements = async (req, res) => {
+  try {
+    const { query, field = 'all' } = req.query;
+    
+    if (!query) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Search query is required" 
+      });
+    }
+
+    const pool = await poolPromise;
+    let searchQuery = `
+      SELECT 
+        a.announcement_id, 
+        a.user_id, 
+        a.title, 
+        a.content, 
+        a.created_at,
+        u.name as author_name
+      FROM Announcement a
+      LEFT JOIN UserAccount u ON a.user_id = u.user_id
+      WHERE 
+    `;
+
+    const searchConditions = [];
+    const inputs = { query: `%${query}%` };
+
+    switch (field) {
+      case 'title':
+        searchConditions.push(`a.title LIKE @query`);
+        break;
+      case 'content':
+        searchConditions.push(`a.content LIKE @query`);
+        break;
+      case 'author':
+        searchConditions.push(`u.name LIKE @query`);
+        break;
+      default:
+        searchConditions.push(`(a.title LIKE @query OR a.content LIKE @query OR u.name LIKE @query)`);
+    }
+
+    searchQuery += searchConditions.join(' OR ') + ` ORDER BY a.created_at DESC`;
+
+    const result = await pool.request()
+      .input('query', sql.VarChar, `%${query}%`)
+      .query(searchQuery);
+
+    res.json({
+      success: true,
+      announcements: result.recordset,
+      count: result.recordset.length,
+      searchInfo: {
+        query,
+        field,
+        resultsFound: result.recordset.length
+      }
+    });
+  } catch (err) {
+    console.error("Search announcements error:", err);
+    res.status(500).json({ 
+      success: false,
+      message: "Server error searching announcements",
+      error: err.message 
     });
   }
 };
@@ -1293,11 +1629,34 @@ exports.deleteStaffSchedule = async (req, res) => {
 //=========================
 exports.getAllNotifications = async (req, res) => {
   try {
+    const { page = 1, limit = 20, status, type } = req.query;
+    const offset = (page - 1) * limit;
+    
     const pool = await poolPromise;
-    const result = await pool.request().query(`
+    
+    let whereConditions = [];
+    const inputs = {};
+    
+    if (status) {
+      whereConditions.push("n.status = @status");
+      inputs.status = status;
+    }
+    
+    if (type) {
+      whereConditions.push("n.type = @type");
+      inputs.type = type;
+    }
+    
+    const whereClause = whereConditions.length > 0 
+      ? `WHERE ${whereConditions.join(' AND ')}` 
+      : '';
+
+    // FIXED QUERY - using correct table structure
+    const query = `
       SELECT 
         n.notification_id,
         n.appointment_id,
+        n.user_id,
         n.content,
         n.type,
         n.status,
@@ -1305,32 +1664,70 @@ exports.getAllNotifications = async (req, res) => {
         u.name AS user_name,
         u.email AS user_email,
         u.phone AS user_phone,
-        a.date_and_time AS appointment_date
+        a.date_and_time AS appointment_date,
+        a.status AS appointment_status
       FROM Notification n
-      INNER JOIN Appointment a ON n.appointment_id = a.appointment_id
-      INNER JOIN Booking b ON a.booking_id = b.booking_id
-      INNER JOIN UserAccount u ON b.user_id = u.user_id
+      LEFT JOIN UserAccount u ON n.user_id = u.user_id
+      LEFT JOIN Appointment a ON n.appointment_id = a.appointment_id
+      ${whereClause}
       ORDER BY n.sent_at DESC
+      OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
+    `;
+
+    const request = pool.request();
+    Object.keys(inputs).forEach(key => {
+      request.input(key, sql.VarChar, inputs[key]);
+    });
+
+    const result = await request.query(query);
+
+    // Get total count
+    const countResult = await pool.request().query(`
+      SELECT COUNT(*) as total 
+      FROM Notification n
+      ${whereClause}
     `);
 
-    res.status(200).json(result.recordset);
+    res.status(200).json({
+      success: true,
+      data: result.recordset,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: countResult.recordset[0].total,
+        pages: Math.ceil(countResult.recordset[0].total / limit)
+      }
+    });
   } catch (error) {
-    console.error("Error fetching notifications:", error.message);
-    res.status(500).json({ error: "Failed to fetch notifications" });
+    console.error("❌ Error fetching notifications:", error.message);
+    res.status(500).json({ 
+      success: false,
+      error: "Failed to fetch notifications" 
+    });
   }
 };
 
-
- exports.getNotificationById = async (req, res) => {
+exports.getNotificationById = async (req, res) => {
   try {
     const { id } = req.params;
+    
+    if (!id || isNaN(id)) {
+      return res.status(400).json({ 
+        success: false,
+        error: "Valid notification ID is required" 
+      });
+    }
+
     const pool = await poolPromise;
+    
+    // FIXED QUERY
     const result = await pool.request()
       .input("id", sql.Int, id)
       .query(`
         SELECT 
           n.notification_id,
           n.appointment_id,
+          n.user_id,
           n.content,
           n.type,
           n.status,
@@ -1338,33 +1735,48 @@ exports.getAllNotifications = async (req, res) => {
           u.name AS user_name,
           u.email AS user_email,
           u.phone AS user_phone,
-          a.date_and_time AS appointment_date
+          a.date_and_time AS appointment_date,
+          a.status AS appointment_status
         FROM Notification n
-        INNER JOIN Appointment a ON n.appointment_id = a.appointment_id
-        INNER JOIN Booking b ON a.booking_id = b.booking_id
-        INNER JOIN UserAccount u ON b.user_id = u.user_id
+        LEFT JOIN UserAccount u ON n.user_id = u.user_id
+        LEFT JOIN Appointment a ON n.appointment_id = a.appointment_id
         WHERE n.notification_id = @id
       `);
 
     if (result.recordset.length === 0) {
-      return res.status(404).json({ message: "Notification not found" });
+      return res.status(404).json({ 
+        success: false,
+        message: "Notification not found" 
+      });
     }
 
-    res.status(200).json(result.recordset[0]);
+    res.status(200).json({
+      success: true,
+      data: result.recordset[0]
+    });
   } catch (error) {
-    console.error("Error fetching notification by ID:", error.message);
-    res.status(500).json({ error: "Failed to fetch notification" });
+    console.error("❌ Error fetching notification:", error.message);
+    res.status(500).json({ 
+      success: false,
+      error: "Failed to fetch notification" 
+    });
   }
 };
 
-
- exports.updateNotificationStatus = async (req, res) => {
+exports.updateNotificationStatus = async (req, res) => {
   try {
     const { notificationId } = req.params;
     const { status } = req.body;
 
+    if (!status || !['unread', 'read', 'sent', 'failed'].includes(status)) {
+      return res.status(400).json({ 
+        success: false,
+        error: "Valid status (unread, read, sent, failed) is required" 
+      });
+    }
+
     const pool = await poolPromise;
-    await pool.request()
+    const result = await pool.request()
       .input("status", sql.VarChar, status)
       .input("notificationId", sql.Int, notificationId)
       .query(`
@@ -1373,13 +1785,25 @@ exports.getAllNotifications = async (req, res) => {
         WHERE notification_id = @notificationId
       `);
 
-    res.status(200).json({ message: "Notification status updated successfully" });
+    if (result.rowsAffected[0] === 0) {
+      return res.status(404).json({ 
+        success: false,
+        message: "Notification not found" 
+      });
+    }
+
+    res.status(200).json({ 
+      success: true,
+      message: "Notification status updated successfully" 
+    });
   } catch (error) {
     console.error("Error updating notification status:", error.message);
-    res.status(500).json({ error: "Failed to update notification status" });
+    res.status(500).json({ 
+      success: false,
+      error: "Failed to update notification status" 
+    });
   }
 };
-
 exports.sendManualNotification = async (req, res) => {
   try {
     const { appointment_id, content, type } = req.body;
@@ -1482,19 +1906,18 @@ exports.bulkUpdateNotificationStatus = async (req, res) => {
 
 
 
-
 // ==========================
-// Feedback Management
+// Feedback Management - Admin
 // ==========================
 exports.getAllFeedback = async (req, res) => {
   try {
     const pool = await poolPromise;
     const result = await pool.request().query(`
-      SELECT f.feedback_id, f.message, f.rating, f.submitted_at, f.status,
-             u.name as user_name, u.email
-      FROM Feedback f
-      INNER JOIN UserAccount u ON f.user_id = u.user_id
-      ORDER BY f.submitted_at DESC
+      SELECT fb.feedback_id, fb.message, fb.rating, fb.submitted_at, fb.status,
+             u.name as user_name, u.email, fb.appointment_id
+      FROM FeedbackBuffer fb
+      INNER JOIN UserAccount u ON fb.user_id = u.user_id
+      ORDER BY fb.submitted_at DESC
     `);
 
     res.json({ feedback: result.recordset });
@@ -1508,6 +1931,7 @@ exports.updateFeedbackStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
+    const adminId = req.user.user_id;
 
     if (!status || !['approved', 'rejected'].includes(status)) {
       return res.status(400).json({ 
@@ -1517,28 +1941,68 @@ exports.updateFeedbackStatus = async (req, res) => {
     }
 
     const pool = await poolPromise;
-    const result = await pool.request()
-      .input('feedback_id', sql.Int, id)
-      .input('status', sql.VarChar, status)
-      .query('UPDATE Feedback SET status = @status WHERE feedback_id = @feedback_id');
+    
+    // Start transaction
+    const transaction = new sql.Transaction(pool);
+    await transaction.begin();
 
-    if (result.rowsAffected[0] === 0) {
-      return res.status(404).json({ 
-        success: false,
-        message: "Feedback not found" 
+    try {
+      // Get the feedback from buffer
+      const feedbackResult = await transaction.request()
+        .input('feedback_id', sql.Int, id)
+        .query(`
+          SELECT * FROM FeedbackBuffer 
+          WHERE feedback_id = @feedback_id
+        `);
+
+      if (feedbackResult.recordset.length === 0) {
+        await transaction.rollback();
+        return res.status(404).json({ 
+          success: false,
+          message: "Feedback not found" 
+        });
+      }
+
+      const feedback = feedbackResult.recordset[0];
+
+      // Insert into final table
+      await transaction.request()
+        .input('user_id', sql.Int, feedback.user_id)
+        .input('appointment_id', sql.Int, feedback.appointment_id)
+        .input('message', sql.NVarChar, feedback.message)
+        .input('rating', sql.Int, feedback.rating)
+        .input('submitted_at', sql.DateTime, feedback.submitted_at)
+        .input('status', sql.VarChar, status)
+        .input('reviewed_at', sql.DateTime, new Date())
+        .input('reviewed_by', sql.Int, adminId)
+        .query(`
+          INSERT INTO FeedbackFinal 
+          (user_id, appointment_id, message, rating, submitted_at, status, reviewed_at, reviewed_by)
+          VALUES (@user_id, @appointment_id, @message, @rating, @submitted_at, @status, @reviewed_at, @reviewed_by)
+        `);
+
+      // Remove from buffer table
+      await transaction.request()
+        .input('feedback_id', sql.Int, id)
+        .query('DELETE FROM FeedbackBuffer WHERE feedback_id = @feedback_id');
+
+      await transaction.commit();
+
+      res.json({ 
+        success: true,
+        message: `Feedback ${status} successfully` 
       });
+
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
     }
 
-    res.json({ 
-      success: true,
-      message: "Feedback status updated successfully" 
-    });
   } catch (err) {
     console.error("Update feedback status error:", err);
     res.status(500).json({ 
       success: false,
-      message: "Server error updating feedback status",
-      error: err.message 
+      message: "Server error updating feedback status" 
     });
   }
 };
@@ -1654,24 +2118,257 @@ exports.generateReport = async (req, res) => {
 };
 
 
-// ==========================
-// Send Notification (used by /send route)
-// ==========================
-exports.sendNotification = async (req, res) => {
-  try {
-    const { phoneNumber, message } = req.body;
 
-    if (!phoneNumber || !message) {
-      return res.status(400).json({ error: "Phone number and message are required" });
+  //================================
+  // Send notification (SMS or Email)
+  //=================================
+  exports.sendNotification= async (req, res) =>{
+    try {
+      const { type, phoneNumber, email, subject, message, htmlContent, userId } = req.body;
+
+      // Validate required fields based on type
+      if (type === 'sms' && (!phoneNumber || !message)) {
+        return res.status(400).json({ 
+          success: false,
+          error: "For SMS: phoneNumber and message are required" 
+        });
+      }
+
+      if (type === 'email' && (!email || !subject || !message)) {
+        return res.status(400).json({ 
+          success: false,
+          error: "For Email: email, subject, and message are required" 
+        });
+      }
+
+      if (!type || !['sms', 'email'].includes(type)) {
+        return res.status(400).json({ 
+          success: false,
+          error: "Type must be 'sms' or 'email'" 
+        });
+      }
+
+      console.log(`📨 Sending ${type.toUpperCase()} notification:`, {
+        to: type === 'sms' ? phoneNumber : email,
+        subject: subject || 'N/A',
+        messageLength: message.length,
+        userId: userId || 'not-provided'
+      });
+
+      let result;
+
+      if (type === 'sms') {
+        result = await sendSMSNotification.sendSMS(phoneNumber, message, userId);
+      } else {
+        result = await sendEmailNotification.sendEmail(email, subject, message, htmlContent);
+      }
+
+      // Log notification in database
+      await this.logNotification({
+        type,
+        recipient: type === 'sms' ? phoneNumber : email,
+        content: message,
+        subject: subject || 'SMS Notification',
+        status: 'sent',
+        userId
+      });
+
+      res.status(200).json({
+        success: true,
+        message: `${type.toUpperCase()} notification sent successfully`,
+        data: result
+      });
+
+    } catch (error) {
+      console.error("❌ Send Notification Error:", error.message);
+      
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        details: `Failed to send ${req.body.type} notification`
+      });
     }
+  }
 
-    // Call the util function
-    await sendSMSNotification(phoneNumber, message);
+  //====================================
+   //Send appointment status notification
+   //=====================================
+  exports.sendAppointmentNotification =async (req, res)=>{
+    try {
+      const { appointmentId, notificationType } = req.body;
 
-    res.status(200).json({ success: true, message: "Notification sent successfully" });
+      if (!appointmentId) {
+        return res.status(400).json({
+          success: false,
+          error: "Appointment ID is required"
+        });
+      }
+
+      // Get appointment details
+      const pool = await poolPromise;
+      const appointmentResult = await pool.request()
+        .input("appointmentId", sql.Int, appointmentId)
+        .query(`
+          SELECT 
+            a.appointment_id, 
+            a.date_and_time, 
+            a.status,
+            a.notes,
+            u.user_id,
+            u.name as patient_name,
+            u.email,
+            u.phone
+          FROM Appointment a
+          INNER JOIN Booking b ON a.booking_id = b.booking_id
+          INNER JOIN UserAccount u ON b.user_id = u.user_id
+          WHERE a.appointment_id = @appointmentId
+        `);
+
+      if (appointmentResult.recordset.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: "Appointment not found"
+        });
+      }
+
+      const appointment = appointmentResult.recordset[0];
+      const formattedDate = new Date(appointment.date_and_time).toLocaleString();
+
+      // Create notification message based on status
+      let message, emailSubject;
+      switch (appointment.status.toLowerCase()) {
+        case 'confirmed':
+          message = `✅ CONFIRMED: Your appointment on ${formattedDate} has been confirmed. See you then!`;
+          emailSubject = 'Appointment Confirmed';
+          break;
+        case 'cancelled':
+          message = `❌ CANCELLED: Your appointment on ${formattedDate} has been cancelled. Contact us to reschedule.`;
+          emailSubject = 'Appointment Cancelled';
+          break;
+        case 'completed':
+          message = `🎉 COMPLETED: Your appointment on ${formattedDate} is complete. Thank you for visiting!`;
+          emailSubject = 'Appointment Completed';
+          break;
+        default:
+          message = `Your appointment status has been updated to: ${appointment.status}`;
+          emailSubject = 'Appointment Status Update';
+      }
+
+      const results = {};
+      const notificationData = {
+        patientName: appointment.patient_name,
+        appointmentDate: appointment.date_and_time,
+        status: appointment.status,
+        notes: appointment.notes
+      };
+
+      // Send email if available and requested
+      if (appointment.email && (!notificationType || notificationType === 'email')) {
+        try {
+          results.email = await sendEmailNotification.sendAppointmentNotification(
+            appointment.email, 
+            notificationData
+          );
+        } catch (emailError) {
+          results.email = { success: false, error: emailError.message };
+        }
+      }
+
+      // Send SMS if available and requested
+      if (appointment.phone && (!notificationType || notificationType === 'sms')) {
+        try {
+          results.sms = await sendSMSNotification.sendSMS(appointment.phone, message, appointment.user_id);
+        } catch (smsError) {
+          results.sms = { success: false, error: smsError.message };
+        }
+      }
+
+      res.status(200).json({
+        success: true,
+        message: "Appointment notifications sent",
+        data: results
+      });
+
+    } catch (error) {
+      console.error("❌ Send Appointment Notification Error:", error.message);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+
+  //=============================
+  // Log notification in database
+ //==============================
+exports.logNotification = async (notificationData) => {
+  try {
+    const pool = await poolPromise;
+    
+    // Use the correct schema that matches your staff endpoints
+    await pool.request()
+      .input("appointment_id", sql.Int, notificationData.appointment_id || null)
+      .input("user_id", sql.Int, notificationData.user_id || null)
+      .input("content", sql.NVarChar, notificationData.content)
+      .input("type", sql.VarChar, notificationData.type || "appointment_update")
+      .input("status", sql.VarChar, notificationData.status || "unread")
+      .input("sent_at", sql.DateTime, notificationData.sent_at || new Date())
+      .query(`
+        INSERT INTO Notification (appointment_id, user_id, content, type, status, sent_at)
+        VALUES (@appointment_id, @user_id, @content, @type, @status, @sent_at)
+      `);
+      
+    console.log("✅ Notification logged successfully");
   } catch (error) {
-    console.error("Send Notification Error:", error.message);
-    res.status(500).json({ error: "Failed to send notification" });
+    console.error("❌ Failed to log notification:", error.message);
+    throw error;
   }
 };
 
+
+  //================
+  // Test endpoints
+  //=================
+  exports.testSMSEndpoint = async (req, res) =>{
+    try {
+      const result = await sendSMSNotification.sendSMS(
+        "+254700000001", 
+        `Test SMS from Healthcare App - ${new Date().toISOString()}`
+      );
+      
+      res.json({
+        success: true,
+        message: "SMS sent successfully!",
+        data: result
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+
+  exports.testEmailEndpoint =async (req, res) =>{
+    try {
+      const result = await sendEmailNotification.sendEmail(
+        "test@example.com",
+        "Test Email from Healthcare App",
+        `This is a test email sent at ${new Date().toISOString()}`,
+        `<p>This is a <strong>test email</strong> sent at ${new Date().toISOString()}</p>`
+      );
+      
+      res.json({
+        success: true,
+        message: "Email sent successfully!",
+        data: result
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+
+  
