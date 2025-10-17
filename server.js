@@ -69,6 +69,16 @@ app.listen(PORT, () => {
       return;
     }
     
+      try {
+      console.log('🔍 Loading staff routes...');
+      const staffRoutes = require("./src/routes/staff.routes");
+      app.use("/api/staff", staffRoutes);
+      console.log('✅ staff routes loaded successfully');
+    } catch (error) {
+      console.log('❌ staff routes failed:', error.message);
+      return;
+    }
+    
     console.log('🎉 All routes loaded successfully!');
     
   }, 1000);
