@@ -1,0 +1,911 @@
+openapi: 3.0.3
+info:
+  title: Student Management API
+  description: API for student operations including profile management, appointments, feedback, and system content
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@yourapp.com
+
+servers:
+  - url: https://api.yourapp.com/v1
+    description: Production server
+  - url: https://staging-api.yourapp.com/v1
+    description: Staging server
+  - url: http://localhost:5000/v1
+    description: Local development server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: "Error description"
+        error:
+          type: string
+          example: "Detailed error information"
+    
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Operation completed successfully"
+    
+    StudentProfile:
+      type: object
+      properties:
+        user_id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "John Doe"
+        email:
+          type: string
+          example: "john@example.com"
+        phone:
+          type: string
+          example: "+1234567890"
+        date_of_birth:
+          type: string
+          format: date
+          example: "2000-05-15"
+        address:
+          type: string
+          example: "123 Main St, City, State"
+        emergency_contact:
+          type: string
+          example: "Jane Doe - +1987654321"
+        created_at:
+          type: string
+          format: date-time
+          example: "2023-10-15T14:30:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2023-12-15T10:20:00Z"
+    
+    ProfileUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "John Smith"
+        phone:
+          type: string
+          example: "+1234567890"
+        date_of_birth:
+          type: string
+          format: date
+          example: "2000-05-15"
+        address:
+          type: string
+          example: "456 Oak Ave, City, State"
+        emergency_contact:
+          type: string
+          example: "Jane Smith - +1987654321"
+    
+    Appointment:
+      type: object
+      properties:
+        appointment_id:
+          type: integer
+          example: 1
+        user_id:
+          type: integer
+          example: 1
+        staff_id:
+          type: integer
+          example: 2
+        staff_name:
+          type: string
+          example: "Dr. Jane Smith"
+        appointment_date:
+          type: string
+          format: date-time
+          example: "2023-12-20T10:00:00Z"
+        duration:
+          type: integer
+          example: 60
+        type:
+          type: string
+          example: "Academic Advising"
+        status:
+          type: string
+          enum: [scheduled, confirmed, completed, cancelled, no-show]
+          example: "scheduled"
+        notes:
+          type: string
+          example: "Discuss course selection for next semester"
+        created_at:
+          type: string
+          format: date-time
+          example: "2023-12-15T14:30:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2023-12-15T14:30:00Z"
+    
+    AppointmentBook:
+      type: object
+      required:
+        - staff_id
+        - appointment_date
+        - type
+      properties:
+        staff_id:
+          type: integer
+          example: 2
+        appointment_date:
+          type: string
+          format: date-time
+          example: "2023-12-20T10:00:00Z"
+        type:
+          type: string
+          example: "Academic Advising"
+        notes:
+          type: string
+          example: "Discuss course selection for next semester"
+        duration:
+          type: integer
+          minimum: 15
+          maximum: 180
+          default: 60
+          example: 60
+    
+    AppointmentReschedule:
+      type: object
+      required:
+        - appointment_date
+      properties:
+        appointment_date:
+          type: string
+          format: date-time
+          example: "2023-12-21T14:00:00Z"
+        notes:
+          type: string
+          example: "Rescheduled due to conflict"
+    
+    Feedback:
+      type: object
+      properties:
+        feedback_id:
+          type: integer
+          example: 1
+        appointment_id:
+          type: integer
+          example: 1
+        message:
+          type: string
+          example: "Great service and very helpful!"
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          example: 5
+        submitted_at:
+          type: string
+          format: date-time
+          example: "2023-12-18T16:45:00Z"
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+          example: "approved"
+    
+    FeedbackSubmit:
+      type: object
+      required:
+        - appointment_id
+        - message
+      properties:
+        appointment_id:
+          type: integer
+          example: 1
+        message:
+          type: string
+          example: "The advisor was very knowledgeable and helpful."
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          example: 5
+    
+    FAQ:
+      type: object
+      properties:
+        faq_id:
+          type: integer
+          example: 1
+        question:
+          type: string
+          example: "How do I book an appointment?"
+        answer:
+          type: string
+          example: "You can book an appointment through the student portal by navigating to the Appointments section."
+        category:
+          type: string
+          example: "Booking"
+        is_active:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+          example: "2023-10-15T14:30:00Z"
+    
+    Announcement:
+      type: object
+      properties:
+        announcement_id:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: "System Maintenance"
+        content:
+          type: string
+          example: "The student portal will be unavailable for maintenance on Saturday from 2 AM to 6 AM."
+        priority:
+          type: string
+          enum: [low, medium, high]
+          example: "medium"
+        is_active:
+          type: boolean
+          example: true
+        start_date:
+          type: string
+          format: date-time
+          example: "2023-12-20T00:00:00Z"
+        end_date:
+          type: string
+          format: date-time
+          example: "2023-12-21T23:59:59Z"
+        created_at:
+          type: string
+          format: date-time
+          example: "2023-12-15T14:30:00Z"
+    
+    Notification:
+      type: object
+      properties:
+        notification_id:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: "Appointment Reminder"
+        message:
+          type: string
+          example: "You have an appointment scheduled for tomorrow at 10:00 AM"
+        type:
+          type: string
+          enum: [info, warning, success, error]
+          example: "info"
+        status:
+          type: string
+          enum: [unread, read]
+          example: "unread"
+        created_at:
+          type: string
+          format: date-time
+          example: "2023-12-18T10:30:00Z"
+        related_entity:
+          type: string
+          example: "appointment"
+        related_id:
+          type: integer
+          example: 1
+
+paths:
+  # Profile Management Endpoints
+  /student/profile:
+    get:
+      summary: Get student profile
+      description: Retrieve the authenticated student's profile information
+      tags: [Profile Management]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  profile:
+                    $ref: '#/components/schemas/StudentProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Profile not found
+        '500':
+          $ref: '#/components/responses/ServerError'
+    
+    put:
+      summary: Update student profile
+      description: Update the authenticated student's profile information
+      tags: [Profile Management]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileUpdate'
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid input data
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  # Content Endpoints (FAQs, Notifications, Announcements)
+  /student/faqs:
+    get:
+      summary: Get FAQs
+      description: Retrieve all active frequently asked questions
+      tags: [Content]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+            example: "Booking"
+        - name: search
+          in: query
+          schema:
+            type: string
+            example: "appointment"
+      responses:
+        '200':
+          description: FAQs retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  faqs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FAQ'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /student/announcements:
+    get:
+      summary: Get announcements
+      description: Retrieve all active system announcements
+      tags: [Content]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: priority
+          in: query
+          schema:
+            type: string
+            enum: [low, medium, high]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: Announcements retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  announcements:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Announcement'
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                        example: 1
+                      limit:
+                        type: integer
+                        example: 20
+                      total:
+                        type: integer
+                        example: 15
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /student/notifications:
+    get:
+      summary: Get notifications
+      description: Retrieve the authenticated student's notifications
+      tags: [Content]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [unread, read]
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [info, warning, success, error]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: Notifications retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  notifications:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Notification'
+                  unread_count:
+                    type: integer
+                    example: 5
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                        example: 1
+                      limit:
+                        type: integer
+                        example: 20
+                      total:
+                        type: integer
+                        example: 45
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  # Appointment Management Endpoints
+  /student/appointments:
+    get:
+      summary: Get student appointments
+      description: Retrieve the authenticated student's appointments with filtering options
+      tags: [Appointment Management]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [scheduled, confirmed, completed, cancelled, no-show]
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date
+            example: "2023-12-01"
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date
+            example: "2023-12-31"
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [appointment_date, created_at]
+            default: appointment_date
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Appointments retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  appointments:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Appointment'
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                        example: 1
+                      limit:
+                        type: integer
+                        example: 20
+                      total:
+                        type: integer
+                        example: 15
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    
+    post:
+      summary: Book appointment
+      description: Book a new appointment with staff
+      tags: [Appointment Management]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentBook'
+      responses:
+        '201':
+          description: Appointment booked successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Appointment booked successfully"
+                  appointment:
+                    $ref: '#/components/schemas/Appointment'
+                  appointment_id:
+                    type: integer
+                    example: 1
+        '400':
+          description: Invalid input data or appointment conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+                example:
+                  success: false
+                  message: "Time slot not available"
+                  error: "Staff is not available at the requested time"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Staff not found
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /student/appointments/{id}:
+    put:
+      summary: Reschedule appointment
+      description: Reschedule an existing appointment
+      tags: [Appointment Management]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentReschedule'
+      responses:
+        '200':
+          description: Appointment rescheduled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid input data or appointment cannot be rescheduled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+                example:
+                  success: false
+                  message: "Appointment cannot be rescheduled"
+                  error: "Appointment is in completed status"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Appointment does not belong to student
+        '404':
+          description: Appointment not found
+        '500':
+          $ref: '#/components/responses/ServerError'
+    
+    delete:
+      summary: Cancel appointment
+      description: Cancel an existing appointment
+      tags: [Appointment Management]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Appointment cancelled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Appointment cannot be cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+                example:
+                  success: false
+                  message: "Appointment cannot be cancelled"
+                  error: "Appointment is less than 24 hours away"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Appointment does not belong to student
+        '404':
+          description: Appointment not found
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  # Feedback Management Endpoints
+  /student/feedback:
+    get:
+      summary: Get approved feedback
+      description: Retrieve all approved feedback from students (public feedback wall)
+      tags: [Feedback Management]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [submitted_at, rating]
+            default: submitted_at
+        - name: order:
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - name: min_rating
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5
+            example: 4
+      responses:
+        '200':
+          description: Feedback retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  feedback:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Feedback'
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                        example: 1
+                      limit:
+                        type: integer
+                        example: 20
+                      total:
+                        type: integer
+                        example: 45
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    
+    post:
+      summary: Submit feedback
+      description: Submit feedback for a completed appointment
+      tags: [Feedback Management]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackSubmit'
+      responses:
+        '201':
+          description: Feedback submitted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Feedback submitted successfully and awaiting approval"
+                  feedback_id:
+                    type: integer
+                    example: 1
+        '400':
+          description: Invalid input data or appointment not eligible for feedback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+                example:
+                  success: false
+                  message: "Cannot submit feedback for this appointment"
+                  error: "Appointment is not completed or feedback already submitted"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Appointment not found or does not belong to student
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+# Common Responses
+components:
+  responses:
+    Unauthorized:
+      description: Authentication token is missing or invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+            example:
+              success: false
+              message: "Authentication required"
+              error: "Token not provided"
+    
+    Forbidden:
+      description: User does not have access to the requested resource
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+            example:
+              success: false
+              message: "Access denied"
+              error: "You can only access your own appointments"
+    
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+            example:
+              success: false
+              message: "Server error processing request"
+              error: "Database connection failed"
+
+tags:
+  - name: Profile Management
+    description: Operations related to student profile management
+  - name: Appointment Management
+    description: Operations related to appointment booking and management
+  - name: Feedback Management
+    description: Operations related to feedback submission and viewing
+  - name: Content
+    description: Operations related to FAQs, announcements, and notifications

@@ -1,0 +1,1700 @@
+openapi: 3.0.3
+info:
+  title: Admin Management API
+  description: Comprehensive API for administrative operations including user management, appointments, analytics, and system settings
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@yourapp.com
+
+servers:
+  - url: https://api.yourapp.com/v1
+    description: Production server
+  - url: https://staging-api.yourapp.com/v1
+    description: Staging server
+  - url: http://localhost:5000/v1
+    description: Local development server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: "Error description"
+        error:
+          type: string
+          example: "Detailed error information"
+    
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Operation completed successfully"
+    
+    User:
+      type: object
+      properties:
+        user_id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "John Doe"
+        email:
+          type: string
+          example: "john@example.com"
+        role:
+          type: string
+          enum: [student, staff, admin]
+          example: "student"
+        status:
+          type: string
+          enum: [active, inactive, suspended]
+          example: "active"
+        created_at:
+          type: string
+          format: date-time
+          example: "2023-10-15T14:30:00Z"
+    
+    UserUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "John Smith"
+        email:
+          type: string
+          example: "john.smith@example.com"
+        role:
+          type: string
+          enum: [student, staff, admin]
+          example: "student"
+    
+    UserStatusUpdate:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [active, inactive, suspended]
+          example: "active"
+    
+    Appointment:
+      type: object
+      properties:
+        appointment_id:
+          type: integer
+          example: 1
+        user_id:
+          type: integer
+          example: 1
+        user_name:
+          type: string
+          example: "John Doe"
+        appointment_date:
+          type: string
+          format: date-time
+          example: "2023-12-20T10:00:00Z"
+        status:
+          type: string
+          enum: [scheduled, confirmed, completed, cancelled, no-show]
+          example: "scheduled"
+        type:
+          type: string
+          example: "Consultation"
+        notes:
+          type: string
+          example: "Initial consultation session"
+        created_at:
+          type: string
+          format: date-time
+          example: "2023-12-15T14:30:00Z"
+    
+    AppointmentStatusUpdate:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [scheduled, confirmed, completed, cancelled, no-show]
+          example: "confirmed"
+    
+    Feedback:
+      type: object
+      properties:
+        feedback_id:
+          type: integer
+          example: 1
+        user_id:
+          type: integer
+          example: 1
+        user_name:
+          type: string
+          example: "John Doe"
+        email:
+          type: string
+          example: "john@example.com"
+        message:
+          type: string
+          example: "Great service!"
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          example: 5
+        submitted_at:
+          type: string
+          format: date-time
+          example: "2023-12-18T16:45:00Z"
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+          example: "pending"
+    
+    FeedbackStatusUpdate:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [approved, rejected]
+          example: "approved"
+    
+    FAQ:
+      type: object
+      properties:
+        faq_id:
+          type: integer
+          example: 1
+        question:
+          type: string
+          example: "How do I book an appointment?"
+        answer:
+          type: string
+          example: "You can book an appointment through the student portal."
+        category:
+          type: string
+          example: "Booking"
+        is_active:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+          example: "2023-10-15T14:30:00Z"
+    
+    FAQCreate:
+      type: object
+      required:
+        - question
+        - answer
+      properties:
+        question:
+          type: string
+          example: "How do I book an appointment?"
+        answer:
+          type: string
+          example: "You can book an appointment through the student portal."
+        category:
+          type: string
+          example: "Booking"
+        is_active:
+          type: boolean
+          example: true
+    
+    Announcement:
+      type: object
+      properties:
+        announcement_id:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: "System Maintenance"
+        content:
+          type: string
+          example: "The system will be down for maintenance on Saturday."
+        priority:
+          type: string
+          enum: [low, medium, high]
+          example: "medium"
+        is_active:
+          type: boolean
+          example: true
+        start_date:
+          type: string
+          format: date-time
+          example: "2023-12-20T00:00:00Z"
+        end_date:
+          type: string
+          format: date-time
+          example: "2023-12-21T23:59:59Z"
+        created_at:
+          type: string
+          format: date-time
+          example: "2023-12-15T14:30:00Z"
+    
+    AnnouncementCreate:
+      type: object
+      required:
+        - title
+        - content
+      properties:
+        title:
+          type: string
+          example: "System Maintenance"
+        content:
+          type: string
+          example: "The system will be down for maintenance on Saturday."
+        priority:
+          type: string
+          enum: [low, medium, high]
+          example: "medium"
+        is_active:
+          type: boolean
+          example: true
+        start_date:
+          type: string
+          format: date-time
+          example: "2023-12-20T00:00:00Z"
+        end_date:
+          type: string
+          format: date-time
+          example: "2023-12-21T23:59:59Z"
+    
+    AnalyticsResponse:
+      type: object
+      properties:
+        period:
+          type: string
+          example: "2023-12"
+        total_users:
+          type: integer
+          example: 150
+        new_users:
+          type: integer
+          example: 15
+        active_users:
+          type: integer
+          example: 120
+    
+    StaffSchedule:
+      type: object
+      properties:
+        schedule_id:
+          type: integer
+          example: 1
+        staff_id:
+          type: integer
+          example: 2
+        staff_name:
+          type: string
+          example: "Jane Smith"
+        day_of_week:
+          type: integer
+          minimum: 0
+          maximum: 6
+          example: 1
+        start_time:
+          type: string
+          example: "09:00"
+        end_time:
+          type: string
+          example: "17:00"
+        is_active:
+          type: boolean
+          example: true
+    
+    Notification:
+      type: object
+      properties:
+        notification_id:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: "New Appointment"
+        message:
+          type: string
+          example: "You have a new appointment scheduled"
+        type:
+          type: string
+          enum: [info, warning, success, error]
+          example: "info"
+        status:
+          type: string
+          enum: [unread, read]
+          example: "unread"
+        created_at:
+          type: string
+          format: date-time
+          example: "2023-12-18T10:30:00Z"
+    
+    SendNotification:
+      type: object
+      required:
+        - title
+        - message
+        - target_users
+      properties:
+        title:
+          type: string
+          example: "System Update"
+        message:
+          type: string
+          example: "The system will be updated tonight"
+        type:
+          type: string
+          enum: [info, warning, success, error]
+          example: "info"
+        target_users:
+          type: array
+          items:
+            type: integer
+          example: [1, 2, 3]
+        send_to_all:
+          type: boolean
+          example: false
+
+paths:
+  # User Management Endpoints
+  /admin/users:
+    get:
+      summary: Get all users
+      description: Retrieve a paginated list of all users with filtering and sorting options
+      tags: [User Management]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [student, staff, admin]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive, suspended]
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [name, email, created_at, role]
+            default: created_at
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  users:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                        example: 1
+                      limit:
+                        type: integer
+                        example: 20
+                      total:
+                        type: integer
+                        example: 150
+                      pages:
+                        type: integer
+                        example: 8
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /admin/users/search:
+    get:
+      summary: Search users
+      description: Search users by name, email, or other criteria
+      tags: [User Management]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            example: "john"
+        - name: field
+          in: query
+          schema:
+            type: string
+            enum: [name, email, all]
+            default: all
+      responses:
+        '200':
+          description: Users found successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  users:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+        '400':
+          description: Search query is required
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/users/{id}:
+    get:
+      summary: Get user by ID
+      description: Retrieve detailed information about a specific user
+      tags: [User Management]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: User retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  user:
+                    $ref: '#/components/schemas/User'
+        '404':
+          description: User not found
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    
+    put:
+      summary: Update user
+      description: Update user information
+      tags: [User Management]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid input data
+        '404':
+          description: User not found
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    
+    delete:
+      summary: Delete user
+      description: Permanently delete a user account
+      tags: [User Management]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: User deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: User not found
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/users/{id}/status:
+    patch:
+      summary: Update user status
+      description: Activate, deactivate, or suspend a user account
+      tags: [User Management]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserStatusUpdate'
+      responses:
+        '200':
+          description: User status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid status value
+        '404':
+          description: User not found
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # Feedback Management Endpoints
+  /admin/feedback:
+    get:
+      summary: Get all feedback
+      description: Retrieve all feedback submissions with user information
+      tags: [Feedback Management]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, approved, rejected]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Feedback retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  feedback:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Feedback'
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                        example: 1
+                      limit:
+                        type: integer
+                        example: 20
+                      total:
+                        type: integer
+                        example: 45
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/feedback/{id}/status:
+    put:
+      summary: Update feedback status
+      description: Approve or reject feedback submissions
+      tags: [Feedback Management]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackStatusUpdate'
+      responses:
+        '200':
+          description: Feedback status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid status value
+        '404':
+          description: Feedback not found
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # Appointment Management Endpoints
+  /admin/appointments:
+    get:
+      summary: Get all appointments
+      description: Retrieve all appointments with filtering options
+      tags: [Appointment Management]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [scheduled, confirmed, completed, cancelled, no-show]
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+            example: "2023-12-20"
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Appointments retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  appointments:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Appointment'
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                        example: 1
+                      limit:
+                        type: integer
+                        example: 20
+                      total:
+                        type: integer
+                        example: 85
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/appointments/search:
+    get:
+      summary: Search appointments
+      description: Search appointments by user name, email, or other criteria
+      tags: [Appointment Management]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            example: "john"
+        - name: field
+          in: query
+          schema:
+            type: string
+            enum: [user_name, email, type, all]
+            default: all
+      responses:
+        '200':
+          description: Appointments found successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  appointments:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Appointment'
+        '400':
+          description: Search query is required
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/appointments/{id}/status:
+    put:
+      summary: Update appointment status
+      description: Update the status of a specific appointment
+      tags: [Appointment Management]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentStatusUpdate'
+      responses:
+        '200':
+          description: Appointment status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid status value
+        '404':
+          description: Appointment not found
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # Analytics Endpoints
+  /admin/analytics/users:
+    get:
+      summary: Get user analytics
+      description: Retrieve user growth and activity analytics
+      tags: [Analytics]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [day, week, month, quarter, year]
+            default: month
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Analytics retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  analytics:
+                    $ref: '#/components/schemas/AnalyticsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/analytics/appointments:
+    get:
+      summary: Get appointment analytics
+      description: Retrieve appointment statistics and trends
+      tags: [Analytics]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [day, week, month, quarter, year]
+            default: month
+      responses:
+        '200':
+          description: Appointment analytics retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  total_appointments:
+                    type: integer
+                    example: 150
+                  completed_appointments:
+                    type: integer
+                    example: 120
+                  cancellation_rate:
+                    type: number
+                    format: float
+                    example: 0.15
+                  average_rating:
+                    type: number
+                    format: float
+                    example: 4.5
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # FAQ Management Endpoints
+  /admin/faqs:
+    get:
+      summary: Get all FAQs
+      description: Retrieve all frequently asked questions
+      tags: [FAQ Management]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: FAQs retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  faqs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FAQ'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    
+    post:
+      summary: Create new FAQ
+      description: Add a new frequently asked question
+      tags: [FAQ Management]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FAQCreate'
+      responses:
+        '201':
+          description: FAQ created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid input data
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/faqs/{id}:
+    put:
+      summary: Update FAQ
+      description: Update an existing frequently asked question
+      tags: [FAQ Management]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FAQCreate'
+      responses:
+        '200':
+          description: FAQ updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid input data
+        '404':
+          description: FAQ not found
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    
+    delete:
+      summary: Delete FAQ
+      description: Delete a frequently asked question
+      tags: [FAQ Management]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: FAQ deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: FAQ not found
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # Announcement Management Endpoints
+  /admin/announcements:
+    get:
+      summary: Get all announcements
+      description: Retrieve all system announcements
+      tags: [Announcement Management]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive]
+        - name: priority
+          in: query
+          schema:
+            type: string
+            enum: [low, medium, high]
+      responses:
+        '200':
+          description: Announcements retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  announcements:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Announcement'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    
+    post:
+      summary: Create announcement
+      description: Create a new system announcement
+      tags: [Announcement Management]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnnouncementCreate'
+      responses:
+        '201':
+          description: Announcement created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid input data
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/announcements/{id}:
+    put:
+      summary: Update announcement
+      description: Update an existing system announcement
+      tags: [Announcement Management]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnnouncementCreate'
+      responses:
+        '200':
+          description: Announcement updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid input data
+        '404':
+          description: Announcement not found
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    
+    delete:
+      summary: Delete announcement
+      description: Delete a system announcement
+      tags: [Announcement Management]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Announcement deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Announcement not found
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # Staff Management Endpoints
+  /admin/staff/schedules:
+    get:
+      summary: Get staff schedules
+      description: Retrieve all staff schedules
+      tags: [Staff Management]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Schedules retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  schedules:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StaffSchedule'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    
+    post:
+      summary: Create staff schedule
+      description: Create a new staff schedule
+      tags: [Staff Management]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - staff_id
+                - day_of_week
+                - start_time
+                - end_time
+              properties:
+                staff_id:
+                  type: integer
+                  example: 2
+                day_of_week:
+                  type: integer
+                  minimum: 0
+                  maximum: 6
+                  example: 1
+                start_time:
+                  type: string
+                  example: "09:00"
+                end_time:
+                  type: string
+                  example: "17:00"
+                is_active:
+                  type: boolean
+                  example: true
+      responses:
+        '201':
+          description: Schedule created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid input data
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/staff/schedules/{id}:
+    put:
+      summary: Update staff schedule
+      description: Update an existing staff schedule
+      tags: [Staff Management]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                day_of_week:
+                  type: integer
+                  minimum: 0
+                  maximum: 6
+                  example: 2
+                start_time:
+                  type: string
+                  example: "10:00"
+                end_time:
+                  type: string
+                  example: "18:00"
+                is_active:
+                  type: boolean
+                  example: true
+      responses:
+        '200':
+          description: Schedule updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid input data
+        '404':
+          description: Schedule not found
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    
+    delete:
+      summary: Delete staff schedule
+      description: Delete a staff schedule
+      tags: [Staff Management]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Schedule deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Schedule not found
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # Notification Management Endpoints
+  /admin/notifications:
+    get:
+      summary: Get all notifications
+      description: Retrieve all system notifications
+      tags: [Notification Management]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [unread, read]
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [info, warning, success, error]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Notifications retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  notifications:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Notification'
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                        example: 1
+                      limit:
+                        type: integer
+                        example: 20
+                      total:
+                        type: integer
+                        example: 45
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/notifications/{id}:
+    get:
+      summary: Get notification by ID
+      description: Retrieve detailed information about a specific notification
+      tags: [Notification Management]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Notification retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  notification:
+                    $ref: '#/components/schemas/Notification'
+        '404':
+          description: Notification not found
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/notifications/{id}/status:
+    put:
+      summary: Update notification status
+      description: Mark notification as read or unread
+      tags: [Notification Management]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum: [read, unread]
+                  example: "read"
+      responses:
+        '200':
+          description: Notification status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid status value
+        '404':
+          description: Notification not found
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/send:
+    post:
+      summary: Send notification
+      description: Send a notification to specific users or all users
+      tags: [Notification Management]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendNotification'
+      responses:
+        '200':
+          description: Notification sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid input data
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # System Settings Endpoints
+  /admin/settings:
+    get:
+      summary: Get system settings
+      description: Retrieve all system configuration settings
+      tags: [System Settings]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Settings retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  settings:
+                    type: object
+                    additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    
+    post:
+      summary: Update system settings
+      description: Update system configuration settings
+      tags: [System Settings]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Settings updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid settings data
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # Reports Endpoint
+  /admin/reports/generate:
+    get:
+      summary: Generate report
+      description: Generate various system reports (users, appointments, etc.)
+      tags: [Reports]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [users, appointments, feedback, financial]
+            example: "users"
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, csv, pdf]
+            default: "json"
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Report generated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  report:
+                    type: object
+                    additionalProperties: true
+                  download_url:
+                    type: string
+                    example: "/reports/report-12345.pdf"
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Invalid report type or parameters
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+# Common Responses
+components:
+  responses:
+    Unauthorized:
+      description: Authentication token is missing or invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+            example:
+              success: false
+              message: "Authentication required"
+              error: "Token not provided"
+    
+    Forbidden:
+      description: User does not have required permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+            example:
+              success: false
+              message: "Insufficient permissions"
+              error: "Admin role required"
+    
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+            example:
+              success: false
+              message: "Server error processing request"
+              error: "Database connection failed"
+
+tags:
+  - name: User Management
+    description: Operations related to user account management
+  - name: Appointment Management
+    description: Operations related to appointment management
+  - name: Feedback Management
+    description: Operations related to feedback moderation
+  - name: FAQ Management
+    description: Operations related to frequently asked questions
+  - name: Announcement Management
+    description: Operations related to system announcements
+  - name: Staff Management
+    description: Operations related to staff schedules
+  - name: Notification Management
+    description: Operations related to system notifications
+  - name: System Settings
+    description: Operations related to system configuration
+  - name: Analytics
+    description: Operations related to system analytics and reporting
+  - name: Reports
+    description: Operations related to report generation
