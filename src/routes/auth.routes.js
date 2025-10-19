@@ -4,7 +4,6 @@ const authController = require("../controllers/auth.controller");
 const { sql, poolPromise } = require("../config/db");
 const auth = require("../middleware/auth.middleware");
 
-// ✅ FIXED: Remove the leading "auth/" 
 router.get("/debug/useraccount-columns", async (req, res) => {
   try {
     const pool = await poolPromise;
@@ -31,5 +30,6 @@ router.use((req, res, next) => {
 // Auth routes (these are correct)
 router.post("/register", authController.register);
 router.post("/login", authController.login);
+//router.post("/refresh-token", authController.refreshToken);
 
 module.exports = router;
