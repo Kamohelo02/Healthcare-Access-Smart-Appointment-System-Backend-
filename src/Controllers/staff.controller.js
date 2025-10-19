@@ -1,5 +1,7 @@
 const { sql, poolPromise } = require("../config/db");
 const { logAudit } = require("../utils/auditLogger");
+const sendSMSNotification = require("../Utils/sendSMSNotification");  //not workingg with real numbers yet
+const sendEmailNotification = require("../Utils/sendEmailNotification");
 
 // ==========================
 // Staff Schedule Management
@@ -425,6 +427,7 @@ exports.updateAppointmentStatus = async (req, res) => {
         `);
     }
 
+  
     // 2. Update Booking table (synchronization)
     console.log("🔍 UPDATING BOOKING TABLE...");
     const bookingUpdateResult = await transaction.request()
@@ -437,6 +440,48 @@ exports.updateAppointmentStatus = async (req, res) => {
       `);
 
     console.log("🔍 BOOKING UPDATE SUCCESS:", bookingUpdateResult.rowsAffected);
+
+    
+ // 3. Update StaffSchedule table - Change from Available to Booked when confirmed
+    if (status.toLowerCase() === 'confirmed' && scheduleId) {
+      console.log("🔄 UPDATING STAFFSCHEDULE TABLE...");
+      const scheduleUpdateResult = await transaction.request()
+        .input("scheduleId", sql.Int, scheduleId)
+        .input("status", sql.VarChar, "Booked")
+        .query(`
+          UPDATE StaffSchedule
+          SET status = @status
+          WHERE schedule_id = @scheduleId AND status = 'Available'
+        `);
+
+      console.log("🔄 STAFFSCHEDULE UPDATE SUCCESS:", {
+        rowsAffected: scheduleUpdateResult.rowsAffected,
+        scheduleId: scheduleId,
+        oldStatus: currentScheduleStatus,
+        newStatus: "Booked"
+      });
+    }
+
+    // 4. If status is cancelled or completed and schedule was Booked, change back to Available
+    if ((status.toLowerCase() === 'cancelled' || status.toLowerCase() === 'completed') && 
+        scheduleId && currentScheduleStatus === 'Booked') {
+      console.log("🔄 REVERTING STAFFSCHEDULE STATUS TO AVAILABLE...");
+      const scheduleRevertResult = await transaction.request()
+        .input("scheduleId", sql.Int, scheduleId)
+        .input("status", sql.VarChar, "Available")
+        .query(`
+          UPDATE StaffSchedule
+          SET status = @status
+          WHERE schedule_id = @scheduleId
+        `);
+
+      console.log("🔄 STAFFSCHEDULE REVERT SUCCESS:", {
+        rowsAffected: scheduleRevertResult.rowsAffected,
+        scheduleId: scheduleId,
+        oldStatus: currentScheduleStatus,
+        newStatus: "Available"
+      });
+    }
 
     // 3. Create notification message
     const formattedDate = new Date(
@@ -492,19 +537,19 @@ exports.updateAppointmentStatus = async (req, res) => {
     // 5. Log audit trail
     await transaction.request()
       .input("userId", sql.Int, userId)
-      .input("action", sql.VarChar, 'UPDATE_APPOINTMENT_STATUS')
-      .input("description", sql.NVarChar, `Staff updated appointment ${id} from ${oldStatus} to ${status}`)
-      .input("timestamp", sql.DateTime, new Date())
+      .input("log_type", sql.VarChar, 'UPDATE_APPOINTMENT_STATUS')
+      .input("message", sql.NVarChar, `Staff updated appointment ${id} from ${oldStatus} to ${status}`)
+      .input("logged_time", sql.DateTime, new Date())
       .query(`
-        INSERT INTO AuditLog (user_id, action, description, timestamp)
-        VALUES (@userId, @action, @description, @timestamp)
+        INSERT INTO AuditLog (user_id, log_type, message, logged_time)
+        VALUES (@userId, @log_type, @message, @logged_time)
       `);
 
     await transaction.commit();
 
     console.log("✅ STAFF TRANSACTION COMMITTED SUCCESSFULLY");
 
-    // 6. Send notifications (optional - same as admin)
+    // 6. Send notifications 
     const notificationResults = {};
     const allowedStatuses = ["confirmed", "cancelled", "completed", "rescheduled"];
 
