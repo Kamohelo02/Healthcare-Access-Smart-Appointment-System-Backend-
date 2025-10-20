@@ -330,7 +330,7 @@ exports.updateAppointmentStatus = async (req, res) => {
 
     const pool = await poolPromise;
     
-    // FIRST: Verify staff access and get appointment data
+    // FIRST: Verify staff access and get appointment data - FIXED JOIN
     console.log("🔍 DEBUG: Checking staff access and appointment data...");
     const debugResult = await pool.request()
       .input('appointmentId', sql.Int, id)
@@ -346,11 +346,14 @@ exports.updateAppointmentStatus = async (req, res) => {
           b.status as booking_status,
           u.email,
           u.phone,
-          u.name AS user_name
+          u.name AS user_name,
+          ss.schedule_id,
+          ss.status as schedule_status
         FROM Appointment a
         INNER JOIN Booking b ON a.booking_id = b.booking_id
         INNER JOIN StaffBooking sb ON b.booking_id = sb.booking_id
         LEFT JOIN UserAccount u ON b.user_id = u.user_id
+        LEFT JOIN StaffSchedule ss ON sb.staff_id = ss.user_id AND CAST(ss.start_time AS DATE) = CAST(a.date_and_time AS DATE)
         WHERE a.appointment_id = @appointmentId AND sb.staff_id = @staffId
       `);
 
@@ -369,6 +372,8 @@ exports.updateAppointmentStatus = async (req, res) => {
     const debugData = debugResult.recordset[0];
     const bookingId = debugData.booking_id;
     const bookingIdFromJoin = debugData.booking_id_from_join;
+    const scheduleId = debugData.schedule_id;
+    const currentScheduleStatus = debugData.schedule_status;
 
     console.log("🔍 BOOKING ID ANALYSIS:", {
       bookingId: bookingId,
@@ -376,7 +381,9 @@ exports.updateAppointmentStatus = async (req, res) => {
       bookingIdFromJoin: bookingIdFromJoin,
       bookingIdFromJoinType: typeof bookingIdFromJoin,
       isBookingIdValid: bookingId && !isNaN(bookingId),
-      isBookingIdFromJoinValid: bookingIdFromJoin && !isNaN(bookingIdFromJoin)
+      isBookingIdFromJoinValid: bookingIdFromJoin && !isNaN(bookingIdFromJoin),
+      scheduleId: scheduleId,
+      currentScheduleStatus: currentScheduleStatus
     });
 
     // Use whichever booking_id is valid
@@ -427,7 +434,6 @@ exports.updateAppointmentStatus = async (req, res) => {
         `);
     }
 
-  
     // 2. Update Booking table (synchronization)
     console.log("🔍 UPDATING BOOKING TABLE...");
     const bookingUpdateResult = await transaction.request()
@@ -441,8 +447,7 @@ exports.updateAppointmentStatus = async (req, res) => {
 
     console.log("🔍 BOOKING UPDATE SUCCESS:", bookingUpdateResult.rowsAffected);
 
-    
- // 3. Update StaffSchedule table - Change from Available to Booked when confirmed
+    // 3. Update StaffSchedule table - Change from Available to Booked when confirmed
     if (status.toLowerCase() === 'confirmed' && scheduleId) {
       console.log("🔄 UPDATING STAFFSCHEDULE TABLE...");
       const scheduleUpdateResult = await transaction.request()
@@ -483,7 +488,7 @@ exports.updateAppointmentStatus = async (req, res) => {
       });
     }
 
-    // 3. Create notification message
+    // 5. Create notification message
     const formattedDate = new Date(
       status.toLowerCase() === 'rescheduled' ? new_date_time : appointment.date_and_time
     ).toLocaleString();
@@ -519,7 +524,7 @@ exports.updateAppointmentStatus = async (req, res) => {
         emailBody = `Hello ${appointment.user_name},<br><br>Your appointment status has been updated to: ${status}.`;
     }
 
-    // 4. Insert Notification for the patient
+    // 6. Insert Notification for the patient
     if (patientUserId) {
       await transaction.request()
         .input("userId", sql.Int, patientUserId)
@@ -534,7 +539,7 @@ exports.updateAppointmentStatus = async (req, res) => {
         `);
     }
 
-    // 5. Log audit trail
+    // 7. Log audit trail
     await transaction.request()
       .input("userId", sql.Int, userId)
       .input("log_type", sql.VarChar, 'UPDATE_APPOINTMENT_STATUS')
@@ -549,7 +554,7 @@ exports.updateAppointmentStatus = async (req, res) => {
 
     console.log("✅ STAFF TRANSACTION COMMITTED SUCCESSFULLY");
 
-    // 6. Send notifications 
+    // 8. Send notifications (optional - same as admin)
     const notificationResults = {};
     const allowedStatuses = ["confirmed", "cancelled", "completed", "rescheduled"];
 
@@ -587,6 +592,8 @@ exports.updateAppointmentStatus = async (req, res) => {
         newStatus: status,
         oldStatus,
         updatedByStaff: userId,
+        scheduleUpdated: status.toLowerCase() === 'confirmed' && scheduleId ? true : false,
+        scheduleNewStatus: status.toLowerCase() === 'confirmed' ? 'Booked' : currentScheduleStatus,
         notifications: notificationResults
       }
     });
@@ -601,7 +608,6 @@ exports.updateAppointmentStatus = async (req, res) => {
     });
   }
 };
-
 // ==========================
 // Booking Management
 // ==========================
@@ -875,4 +881,5 @@ exports.searchAppointments = async (req, res) => { /* Your search logic */ };
 exports.completeAppointment = async (req, res) => { /* Your completion logic */ };
 exports.getAppointmentNotes = async (req, res) => { /* Your notes logic */ };
 exports.addAppointmentNote = async (req, res) => { /* Your add note logic */ };
+
 exports.getStudentAppointments = async (req, res) => { /* Your student appointments logic */ };
